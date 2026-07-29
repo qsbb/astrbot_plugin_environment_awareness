@@ -1,0 +1,145 @@
+{
+  "default_location": {
+    "description": "常驻地点",
+    "type": "string",
+    "hint": "只需填写城市名，例如“杭州”。也支持“经度,纬度”。留空时仍可查询用户临时指定的地点，但无法回答未带地点的本地问题。",
+    "obvious_hint": true,
+    "default": ""
+  },
+  "language": {
+    "description": "地点搜索语言",
+    "type": "string",
+    "options": ["zh", "en"],
+    "default": "zh"
+  },
+  "forecast_days": {
+    "description": "默认逐日预报天数",
+    "type": "int",
+    "hint": "范围 1-7 天。",
+    "default": 3
+  },
+  "calendar_awareness_enabled": {
+    "description": "重要节假日与调休轻量感知",
+    "type": "bool",
+    "hint": "开启后，只在公共假日或调休工作日的当地当天首次 LLM 请求提供一条短事实；不会每轮注入，也不会要求模型主动提及。地点尚未校验时不会为此发起网络请求。",
+    "default": true
+  },
+  "calendar_country_code": {
+    "description": "节假日国家代码覆盖",
+    "type": "string",
+    "hint": "通常留空并使用城市解析得到的 ISO 国家代码。使用纯经纬度或需要手动覆盖时填写，例如 CN、JP、US。",
+    "default": ""
+  },
+  "holiday_subdivision": {
+    "description": "节假日行政区代码",
+    "type": "string",
+    "hint": "可选的 python-holidays subdivision 代码；中国国家法定节假日通常留空。",
+    "default": ""
+  },
+  "official_weather_warnings_enabled": {
+    "description": "查询中央气象台官方预警",
+    "type": "bool",
+    "hint": "仅支持能够确认中国省级行政区的地点。先按省查询，再按城市、区县或省级发布机构过滤；不会把同省其它城市预警返回给模型。",
+    "default": true
+  },
+  "official_warning_max_age_hours": {
+    "description": "官方预警最大发布时长（小时）",
+    "type": "int",
+    "hint": "范围 1-168；超过该发布时间的记录即使仍在来源列表中也不会返回。",
+    "default": 72
+  },
+  "official_warning_province": {
+    "description": "官方预警省级地区覆盖",
+    "type": "string",
+    "hint": "通常留空自动识别。使用经纬度或地点解析缺少省份时可填写，例如“浙江省”；缺少城市信息时只保留省级发布的预警。",
+    "default": ""
+  },
+  "earthquake_min_magnitude": {
+    "description": "地震最低震级",
+    "type": "float",
+    "hint": "低于此震级的事件不进入相关性判断。USGS 首版数据源为 M2.5+，因此有效下限是 2.5。",
+    "default": 2.5
+  },
+  "earthquake_max_distance_km": {
+    "description": "地震感知绝对最远距离（公里）",
+    "type": "float",
+    "hint": "事件还必须通过震级对应的更严格影响半径；超过该距离始终不让模型感知。",
+    "default": 1200
+  },
+  "earthquake_nearby_radius_km": {
+    "description": "近场关注半径（公里）",
+    "type": "float",
+    "hint": "达到最低震级且发生在该范围内时视为本地相关。",
+    "default": 30
+  },
+  "tsunami_relevance_distance_km": {
+    "description": "海啸标记事件最远相关距离（公里）",
+    "type": "float",
+    "hint": "仍受地震感知绝对最远距离限制，不会因为海啸标记感知全球事件。",
+    "default": 1200
+  },
+  "max_hazard_events": {
+    "description": "单次最多返回的风险事件",
+    "type": "int",
+    "hint": "范围 1-20，避免挤占对话上下文。",
+    "default": 5
+  },
+  "weather_risk_enabled": {
+    "description": "感知本地强天气模型信号",
+    "type": "bool",
+    "hint": "这些是当地天气模型达到阈值的信号，不冒充官方预警。",
+    "default": true
+  },
+  "heavy_rain_mm": {
+    "description": "日累计强降水阈值（毫米）",
+    "type": "float",
+    "default": 50
+  },
+  "strong_wind_kmh": {
+    "description": "强阵风阈值（km/h）",
+    "type": "float",
+    "default": 62
+  },
+  "extreme_heat_c": {
+    "description": "高温感知阈值（°C）",
+    "type": "float",
+    "default": 40
+  },
+  "extreme_cold_c": {
+    "description": "低温感知阈值（°C）",
+    "type": "float",
+    "default": -20
+  },
+  "request_timeout_seconds": {
+    "description": "数据源请求超时（秒）",
+    "type": "float",
+    "hint": "范围 2-20 秒；插件只在模型实际调用工具时请求网络。",
+    "default": 6
+  },
+  "weather_current_ttl_seconds": {
+    "description": "当前天气缓存时间（秒）",
+    "type": "int",
+    "default": 600
+  },
+  "weather_forecast_ttl_seconds": {
+    "description": "天气预报缓存时间（秒）",
+    "type": "int",
+    "default": 1800
+  },
+  "air_quality_ttl_seconds": {
+    "description": "空气质量缓存时间（秒）",
+    "type": "int",
+    "default": 1800
+  },
+  "hazard_ttl_seconds": {
+    "description": "灾害数据缓存时间（秒）",
+    "type": "int",
+    "default": 300
+  },
+  "stale_cache_seconds": {
+    "description": "数据源故障时可回退的旧缓存时长（秒）",
+    "type": "int",
+    "hint": "回退结果始终带 stale=true，不会伪装成实时数据。设为 0 可关闭。",
+    "default": 3600
+  }
+}

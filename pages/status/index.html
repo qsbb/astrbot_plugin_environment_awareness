@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>凝心溯溪-境</title>
+    <link rel="stylesheet" href="./style.css?v=20260729-environment" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ASTRBOT PLUGIN PAGE</p>
+          <h1>凝心溯溪-境</h1>
+        </div>
+        <button id="refresh" class="secondary" type="button">刷新</button>
+      </header>
+
+      <section class="status-band" aria-label="运行状态">
+        <div>
+          <span class="label">运行状态</span>
+          <strong id="runtime-status">读取中</strong>
+        </div>
+        <div>
+          <span class="label">数据源</span>
+          <strong>Open-Meteo · 中央气象台 · USGS</strong>
+        </div>
+        <div>
+          <span class="label">模式</span>
+          <strong>按需感知</strong>
+        </div>
+        <div>
+          <span class="label">版本</span>
+          <strong id="plugin-version">-</strong>
+        </div>
+      </section>
+
+      <section class="setup-section">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">快速设置</p>
+            <h2>常驻地点</h2>
+          </div>
+          <span id="location-state" class="state neutral">未设置</span>
+        </div>
+        <form id="setup-form" class="setup-form">
+          <label for="default-location">城市或经度,纬度</label>
+          <div class="input-row">
+            <input
+              id="default-location"
+              name="default_location"
+              type="text"
+              maxlength="100"
+              autocomplete="off"
+              placeholder="例如：杭州"
+            />
+            <button id="save" type="submit">保存并校验</button>
+          </div>
+        </form>
+        <p id="setup-result" class="result" role="status"></p>
+      </section>
+
+      <section class="probe-section">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">实时检查</p>
+            <h2>本地感知结果</h2>
+          </div>
+          <button id="probe" class="secondary" type="button">测试数据源</button>
+        </div>
+        <div class="probe-grid">
+          <div>
+            <span class="label">地点</span>
+            <strong id="probe-location">-</strong>
+          </div>
+          <div>
+            <span class="label">当前天气</span>
+            <strong id="probe-weather">-</strong>
+          </div>
+          <div>
+            <span class="label">空气质量 / 紫外线</span>
+            <strong id="probe-air-quality">-</strong>
+          </div>
+          <div>
+            <span class="label">花粉数据</span>
+            <strong id="probe-pollen">-</strong>
+          </div>
+          <div>
+            <span class="label">当地日历</span>
+            <strong id="probe-calendar">-</strong>
+          </div>
+          <div>
+            <span class="label">相关天气信号</span>
+            <strong id="probe-weather-risks">-</strong>
+          </div>
+          <div>
+            <span class="label">官方气象预警</span>
+            <strong id="probe-official-warnings">-</strong>
+          </div>
+          <div>
+            <span class="label">相关地震</span>
+            <strong id="probe-earthquakes">-</strong>
+          </div>
+        </div>
+        <p id="probe-result" class="result" role="status"></p>
+      </section>
+
+      <section class="filter-section">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">过滤边界</p>
+            <h2>当前感知阈值</h2>
+          </div>
+        </div>
+        <dl class="filter-list">
+          <div>
+            <dt>最低震级</dt>
+            <dd id="filter-magnitude">-</dd>
+          </div>
+          <div>
+            <dt>绝对最远距离</dt>
+            <dd id="filter-distance">-</dd>
+          </div>
+          <div>
+            <dt>近场半径</dt>
+            <dd id="filter-nearby">-</dd>
+          </div>
+          <div>
+            <dt>重要日轻量感知</dt>
+            <dd id="filter-calendar-awareness">-</dd>
+          </div>
+          <div>
+            <dt>官方预警查询</dt>
+            <dd id="filter-official-warnings">-</dd>
+          </div>
+          <div>
+            <dt>常驻环境注入</dt>
+            <dd>关闭</dd>
+          </div>
+          <div>
+            <dt>主动推送</dt>
+            <dd>关闭</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+
+    <script src="/api/plugin/page/bridge-sdk.js"></script>
+    <script type="module" src="./app.js?v=20260729-environment"></script>
+  </body>
+</html>
