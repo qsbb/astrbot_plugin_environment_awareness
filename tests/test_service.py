@@ -184,6 +184,32 @@ def test_configured_default_location_is_used_and_cached():
     asyncio.run(scenario())
 
 
+def test_calendar_awareness_computes_once_per_local_day(monkeypatch):
+    from astrbot_plugin_environment_awareness.core import service as service_module
+
+    provider = FakeProvider()
+    profile = asyncio.run(provider.resolve_location("杭州"))
+    service = _service(
+        {
+            "default_location": "杭州",
+            "_resolved_location_profile": profile.profile_dict(),
+        },
+        provider,
+    )
+    original = service_module.build_calendar_snapshot
+    calls = 0
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(service_module, "build_calendar_snapshot", counted)
+    service.cached_calendar_awareness()
+    service.cached_calendar_awareness()
+    assert calls == 1
+
+
 def test_persisted_location_profile_avoids_geocoding_on_next_start():
     async def scenario():
         provider = FakeProvider()
@@ -215,9 +241,7 @@ def test_hourly_weather_starts_at_current_hour():
 
 def test_current_weather_contains_sunrise_sunset_and_daylight():
     async def scenario():
-        snapshot = await _service(
-            {"default_location": "杭州"}
-        ).weather_snapshot()
+        snapshot = await _service({"default_location": "杭州"}).weather_snapshot()
         astronomy = snapshot["payload"]["astronomy"]
         assert astronomy["sunrise"] == "2026-07-29T05:16"
         assert astronomy["sunset"] == "2026-07-29T18:55"
@@ -228,9 +252,9 @@ def test_current_weather_contains_sunrise_sunset_and_daylight():
 
 def test_nowcast_summarizes_15_minute_precipitation():
     async def scenario():
-        snapshot = await _service(
-            {"default_location": "杭州"}
-        ).weather_snapshot(forecast_range="nowcast")
+        snapshot = await _service({"default_location": "杭州"}).weather_snapshot(
+            forecast_range="nowcast"
+        )
         summary = snapshot["payload"]["near_term_precipitation"]
         assert summary["rain_expected"] is True
         assert summary["first_precipitation_at"] == "2026-07-29T12:15"
@@ -241,9 +265,9 @@ def test_nowcast_summarizes_15_minute_precipitation():
 
 def test_air_quality_removes_unavailable_pollen_series():
     async def scenario():
-        snapshot = await _service(
-            {"default_location": "杭州"}
-        ).air_quality_snapshot(forecast_hours=2)
+        snapshot = await _service({"default_location": "杭州"}).air_quality_snapshot(
+            forecast_hours=2
+        )
         assert snapshot["payload"]["current"]["european_aqi"] == 42
         assert snapshot["availability"]["pollen"] is False
         assert "grass_pollen" not in snapshot["payload"]["hourly"]

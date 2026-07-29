@@ -24,6 +24,8 @@ const elements = {
   filterNearby: document.getElementById("filter-nearby"),
   filterCalendarAwareness: document.getElementById("filter-calendar-awareness"),
   filterOfficialWarnings: document.getElementById("filter-official-warnings"),
+  opportunityCache: document.getElementById("opportunity-cache"),
+  proactiveStatus: document.getElementById("proactive-status"),
 };
 
 const weatherNames = new Map([
@@ -88,6 +90,21 @@ async function loadStatus() {
     elements.filterOfficialWarnings.textContent = status.filters?.official_weather_warnings_enabled
       ? "开启"
       : "关闭";
+    const opportunity = status.opportunity_cache || {};
+    const candidate = opportunity.candidate;
+    elements.opportunityCache.textContent = !opportunity.enabled
+      ? "关闭"
+      : candidate
+        ? `${candidate.severity || "-"} · ${candidate.kind || "-"}${candidate.stale ? " · 旧" : ""}`
+        : opportunity.background_task_running
+          ? "后台运行 · 暂无候选"
+          : "等待常驻地点";
+    const proactive = status.proactive_delivery || {};
+    elements.proactiveStatus.textContent = !proactive.enabled
+      ? "关闭"
+      : proactive.paused
+        ? "已暂停"
+        : proactive.status || "等待检查";
   } catch (error) {
     elements.runtimeStatus.textContent = "连接失败";
     setResult(elements.setupResult, error?.message || "无法读取插件状态", "error");

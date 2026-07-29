@@ -104,6 +104,8 @@ class EnvironmentService:
             "suppressed_as_malformed": 0,
             "returned": 0,
         }
+        self._calendar_awareness_cache_key: tuple[str, ...] | None = None
+        self._calendar_awareness_cache_value: tuple[str, str] | None = None
 
     def settings(self) -> EnvironmentSettings:
         return EnvironmentSettings.from_mapping(self._config)
@@ -223,6 +225,20 @@ class EnvironmentService:
             return None
         try:
             target = datetime.now(ZoneInfo(resolved.timezone or "UTC")).date()
+        except (ValueError, ZoneInfoNotFoundError):
+            return None
+        cache_key = (
+            target.isoformat(),
+            resolved.query,
+            resolved.timezone,
+            resolved.country_code,
+            settings.language,
+            settings.calendar_country_code,
+            settings.holiday_subdivision,
+        )
+        if cache_key == self._calendar_awareness_cache_key:
+            return self._calendar_awareness_cache_value
+        try:
             snapshot = build_calendar_snapshot(
                 resolved,
                 target,
@@ -230,12 +246,13 @@ class EnvironmentService:
                 country_code_override=settings.calendar_country_code,
                 subdivision=settings.holiday_subdivision,
             )
-        except (ValueError, ZoneInfoNotFoundError):
+        except ValueError:
             return None
         fragment = significant_calendar_fragment(snapshot)
-        if not fragment:
-            return None
-        return target.isoformat(), fragment
+        value = (target.isoformat(), fragment) if fragment else None
+        self._calendar_awareness_cache_key = cache_key
+        self._calendar_awareness_cache_value = value
+        return value
 
     async def _weather_result(
         self, location: Location, days: int, ttl_seconds: int
@@ -369,9 +386,7 @@ class EnvironmentService:
         if hours:
             hourly = raw.get("hourly") or {}
             start = _hourly_start_index(hourly, str(current.get("time") or ""))
-            payload["hourly"] = _drop_empty_series(
-                _slice_series(hourly, start, hours)
-            )
+            payload["hourly"] = _drop_empty_series(_slice_series(hourly, start, hours))
         pollen_keys = {
             "alder_pollen",
             "birch_pollen",
@@ -401,15 +416,12 @@ class EnvironmentService:
                 "hourly": raw.get("hourly_units") or {},
             },
             "availability": {
-                "pollen": any(
-                    current.get(key) is not None for key in pollen_keys
-                ),
+                "pollen": any(current.get(key) is not None for key in pollen_keys),
                 "unavailable_current_variables": unavailable,
             },
             "payload": payload,
             "disclaimer": (
-                "空气质量、紫外线和花粉为模型数据，"
-                "不替代当地监测与医疗建议。"
+                "空气质量、紫外线和花粉为模型数据，不替代当地监测与医疗建议。"
             ),
         }
 
@@ -432,9 +444,7 @@ class EnvironmentService:
             self._mark_success("usgs-earthquake")
         return result
 
-    async def _official_warning_result(
-        self, province: str
-    ) -> CacheResult:
+    async def _official_warning_result(self, province: str) -> CacheResult:
         settings = self.settings()
         try:
             result = await self._cache.get_or_create(
@@ -629,9 +639,7 @@ class EnvironmentService:
             "provider_last_error": dict(self._last_provider_error),
             "cache": self._cache.stats(),
             "last_relevance_filter": dict(self._last_filter_stats),
-            "last_official_warning_filter": dict(
-                self._last_warning_filter_stats
-            ),
+            "last_official_warning_filter": dict(self._last_warning_filter_stats),
             "filters": {
                 "earthquake_min_magnitude": settings.earthquake_min_magnitude,
                 "earthquake_max_distance_km": settings.earthquake_max_distance_km,

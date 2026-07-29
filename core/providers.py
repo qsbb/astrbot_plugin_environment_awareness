@@ -233,7 +233,7 @@ class OpenDataProvider:
                 *(page(number) for number in range(2, total_pages + 1))
             )
             for item in remaining:
-                page_data = ((item.get("data") or {}).get("page") or {})
+                page_data = (item.get("data") or {}).get("page") or {}
                 warnings.extend(page_data.get("list") or [])
         return {
             "warnings": warnings,

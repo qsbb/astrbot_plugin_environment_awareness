@@ -118,9 +118,7 @@ def test_air_quality_request_contains_aqi_uv_and_pollen_fields():
             return httpx.Response(200, json={"current": {}})
 
         async with _client(handler) as client:
-            location = await OpenDataProvider(client).resolve_location(
-                "120.15,30.27"
-            )
+            location = await OpenDataProvider(client).resolve_location("120.15,30.27")
             await OpenDataProvider(client).air_quality(location)
         assert "european_aqi" in captured["current"]
         assert "uv_index" in captured["current"]
@@ -151,9 +149,7 @@ def test_nmc_warning_provider_combines_pages():
             )
 
         async with _client(handler) as client:
-            result = await OpenDataProvider(client).official_weather_warnings(
-                "浙江省"
-            )
+            result = await OpenDataProvider(client).official_weather_warnings("浙江省")
         assert sorted(seen_pages) == [1, 2]
         assert [item["alertid"] for item in result["warnings"]] == [
             "warning-1",

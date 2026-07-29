@@ -1,7 +1,7 @@
 name: astrbot_plugin_environment_awareness
 display_name: 凝心溯溪-境
 desc: 按需感知当地日历、天气、空气质量、官方预警和相关自然事件；免 API Key
-version: 0.1.0
+version: 0.1.1
 author: 凌溪
 repo: https://github.com/qsbb/astrbot_plugin_environment_awareness
 astrbot_version: ">=4.16,<5"

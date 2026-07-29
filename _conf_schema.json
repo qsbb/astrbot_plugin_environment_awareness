@@ -1,8 +1,8 @@
 {
   "default_location": {
-    "description": "常驻地点",
+    "description": "全局常驻地点",
     "type": "string",
-    "hint": "只需填写城市名，例如“杭州”。也支持“经度,纬度”。留空时仍可查询用户临时指定的地点，但无法回答未带地点的本地问题。",
+    "hint": "插件级全局地点，不按用户隔离。单用户部署可填写城市名或“经度,纬度”；多用户部署应让每次查询显式提供地点，避免把一个人的城市用于其他用户。留空时仍可查询临时指定地点。",
     "obvious_hint": true,
     "default": ""
   },
@@ -53,6 +53,97 @@
     "type": "string",
     "hint": "通常留空自动识别。使用经纬度或地点解析缺少省份时可填写，例如“浙江省”；缺少城市信息时只保留省级发布的预警。",
     "default": ""
+  },
+  "opportunity_cache_enabled": {
+    "description": "后台刷新环境关心候选",
+    "type": "bool",
+    "hint": "开启且已设置常驻地点时，境会在后台定时刷新预警、空气质量、紫外线和降温数据，只缓存一条真正值得关心的中性事实。普通回复钩子只读缓存，不等待联网；真正主动发送仍由下方独立开关控制。",
+    "obvious_hint": true,
+    "default": true
+  },
+  "opportunity_refresh_seconds": {
+    "description": "环境关心候选刷新间隔（秒）",
+    "type": "int",
+    "hint": "范围 300-21600，默认 15 分钟。刷新在后台运行，不计入普通回复耗时。",
+    "default": 900
+  },
+  "opportunity_min_severity": {
+    "description": "生成关心候选的最低严重度",
+    "type": "string",
+    "options": ["low", "medium", "high", "critical"],
+    "hint": "默认 medium：通常从黄色及以上官方预警、明显强天气、高 AQI/UV、相关地震或强降温中选一条。蓝色预警等低级信号默认不进入候选。",
+    "default": "medium"
+  },
+  "opportunity_european_aqi_threshold": {
+    "description": "欧洲 AQI 关心阈值",
+    "type": "float",
+    "default": 80
+  },
+  "opportunity_us_aqi_threshold": {
+    "description": "美国 AQI 关心阈值",
+    "type": "float",
+    "default": 151
+  },
+  "opportunity_uv_threshold": {
+    "description": "紫外线指数关心阈值",
+    "type": "float",
+    "default": 8
+  },
+  "opportunity_temperature_drop_c": {
+    "description": "相邻两天强降温阈值（°C）",
+    "type": "float",
+    "default": 8
+  },
+  "care_person_id": {
+    "description": "关心对象的自然人 ID",
+    "type": "string",
+    "hint": "填写“情”账号归属页中的 person_id。境不会读取或推断 UID；候选注入和主动发送前都由情核验该自然人与收件会话的绑定。",
+    "default": ""
+  },
+  "care_recipient_umo": {
+    "description": "关心对象的私聊会话 ID（UMO）",
+    "type": "string",
+    "hint": "填写 /sid 显示的完整私聊 unified_msg_origin，并同时加入“序”的主动消息私聊白名单。群聊 UMO 或未获序授权的目标永远不会发送。",
+    "default": ""
+  },
+  "proactive_enabled": {
+    "description": "允许真正主动发送环境关心",
+    "type": "bool",
+    "hint": "默认关闭。开启后仍必须同时配置自然人、私聊 UMO，并在序中授权；情或序缺失、言契约不兼容时一律不发送。",
+    "obvious_hint": true,
+    "default": false
+  },
+  "proactive_paused": {
+    "description": "暂停主动环境关心",
+    "type": "bool",
+    "hint": "开启后保留后台候选刷新和普通回复中的可选参考，但暂停所有主动消息。",
+    "obvious_hint": true,
+    "default": false
+  },
+  "proactive_min_severity": {
+    "description": "主动发送最低严重度",
+    "type": "string",
+    "options": ["low", "medium", "high", "critical"],
+    "hint": "默认 high，比普通回复候选更严格。",
+    "default": "high"
+  },
+  "proactive_quiet_start": {
+    "description": "主动消息安静时段开始",
+    "type": "string",
+    "hint": "常驻地点当地时间，HH:MM。",
+    "default": "23:00"
+  },
+  "proactive_quiet_end": {
+    "description": "主动消息安静时段结束",
+    "type": "string",
+    "hint": "常驻地点当地时间，HH:MM。开始与结束相同表示不设安静时段。",
+    "default": "07:00"
+  },
+  "proactive_daily_limit": {
+    "description": "主动环境关心每日上限",
+    "type": "int",
+    "hint": "按常驻地点当地日期计数，范围 1-10；相同事件还会跨重启去重。",
+    "default": 1
   },
   "earthquake_min_magnitude": {
     "description": "地震最低震级",
@@ -113,7 +204,7 @@
   "request_timeout_seconds": {
     "description": "数据源请求超时（秒）",
     "type": "float",
-    "hint": "范围 2-20 秒；插件只在模型实际调用工具时请求网络。",
+    "hint": "范围 2-20 秒；按需工具会在模型实际调用时联网，开启后台候选后其刷新任务也会独立联网，但普通回复钩子不会等待这些请求。",
     "default": 6
   },
   "weather_current_ttl_seconds": {

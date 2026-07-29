@@ -57,11 +57,7 @@ def test_city_filter_suppresses_other_city_in_same_province():
 
 
 def test_province_level_warning_is_relevant_to_city():
-    payload = {
-        "warnings": [
-            _warning("province", "浙江省气象台发布台风橙色预警信号")
-        ]
-    }
+    payload = {"warnings": [_warning("province", "浙江省气象台发布台风橙色预警信号")]}
     warnings, _ = filter_nmc_warnings(
         payload,
         _location(),

@@ -35,6 +35,11 @@ def _install_astrbot_stub() -> None:
         def __init__(self, context=None, *args, **kwargs):
             self.context = context
 
+    class StarTools:
+        @staticmethod
+        def get_data_dir(_name: str) -> str:
+            return str(Path(__file__).resolve().parent / ".runtime")
+
     class _Filter:
         @staticmethod
         def command(*args, **kwargs):
@@ -61,6 +66,7 @@ def _install_astrbot_stub() -> None:
     api_event.filter = _Filter()
     api_star.Context = object
     api_star.Star = Star
+    api_star.StarTools = StarTools
     api_star.register = register
     api_web.json_response = json_response
     api_web.error_response = error_response
