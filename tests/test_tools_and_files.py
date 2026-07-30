@@ -84,7 +84,14 @@ def test_tool_descriptions_cover_natural_intents_without_forcing_unrelated_calls
 
 def test_tool_calls_return_structured_json():
     async def scenario():
-        tools = create_tools(SimpleNamespace(service=FakeService()))
+        calls = []
+
+        def record(*args, **kwargs):
+            calls.append((args, kwargs))
+
+        tools = create_tools(
+            SimpleNamespace(service=FakeService(), record_invocation=record)
+        )
         weather_tool = next(tool for tool in tools if tool.name == "get_weather")
         result = json.loads(
             await weather_tool.call(
@@ -92,6 +99,8 @@ def test_tool_calls_return_structured_json():
             )
         )
         assert result == {"kind": "weather", "range": "daily", "days": 5}
+        assert calls[0][0] == ("llm_tool", "get_weather")
+        assert calls[0][1]["status"] == "success"
 
     asyncio.run(scenario())
 
@@ -113,9 +122,10 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.1.1" in metadata
-    assert 'PLUGIN_VERSION = "0.1.1"' in main
+    assert "version: 0.1.2" in metadata
+    assert 'PLUGIN_VERSION = "0.1.2"' in main
     assert schema["default_location"]["default"] == ""
+    assert schema["page_enabled"]["default"] is False
     assert schema["earthquake_max_distance_km"]["default"] == 1200
     assert schema["calendar_awareness_enabled"]["default"] is True
     assert schema["official_weather_warnings_enabled"]["default"] is True
@@ -136,10 +146,30 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert 'id="probe-pollen"' in html
     assert 'id="opportunity-cache"' in html
     assert 'id="proactive-status"' in html
+    assert 'id="use-device-location"' in html
+    assert 'id="config-form"' in html
+    assert 'id="usage-recent"' in html
     assert 'bridge.apiPost("setup"' in app
     assert 'bridge.apiPost("probe"' in app
+    assert 'bridge.apiPost("config"' in app
+    assert "navigator.geolocation.getCurrentPosition" in app
+    assert "renderUsage" in app
     assert "status.opportunity_cache" in app
     assert "status.proactive_delivery" in app
+
+
+def test_page_config_schema_declares_numeric_boundaries():
+    schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
+    expected = {
+        "forecast_days": (1, 7),
+        "opportunity_refresh_seconds": (300, 21600),
+        "earthquake_min_magnitude": (2.5, 9.9),
+        "request_timeout_seconds": (2, 20),
+        "stale_cache_seconds": (0, 86400),
+    }
+    for key, (minimum, maximum) in expected.items():
+        assert schema[key]["minimum"] == minimum
+        assert schema[key]["maximum"] == maximum
 
 
 def test_main_has_only_selective_calendar_prompt_injection():
@@ -175,3 +205,12 @@ def test_docs_name_official_sources_and_current_limitations():
     license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
     assert license_text.startswith("MIT License")
     assert "Copyright (c) 2026 qsbb" in license_text
+
+
+def test_docs_explain_page_access_usage_privacy_and_device_location():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "管理页默认关闭" in readme
+    assert "不记录消息内容、用户 ID、UMO 或查询地点" in readme
+    assert "HTTPS 或 `localhost`" in readme
+    assert "页面探测不计入真实调用次数" in changelog

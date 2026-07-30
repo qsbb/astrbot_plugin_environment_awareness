@@ -49,6 +49,7 @@ def _clock(config: Mapping[str, Any], key: str, default: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class EnvironmentSettings:
+    page_enabled: bool
     default_location: str
     language: str
     request_timeout_seconds: float
@@ -96,6 +97,7 @@ class EnvironmentSettings:
         if language not in {"zh", "en"}:
             language = "zh"
         return cls(
+            page_enabled=_boolean(config, "page_enabled", False),
             default_location=str(config.get("default_location", "") or "").strip(),
             language=language,
             request_timeout_seconds=_number(

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>凝心溯溪-境</title>
-    <link rel="stylesheet" href="./style.css?v=20260730-opportunity" />
+    <link rel="stylesheet" href="./style.css?v=20260730-page-config" />
   </head>
   <body>
     <main class="shell">
@@ -35,7 +35,12 @@
         </div>
       </section>
 
-      <section class="setup-section">
+      <section id="page-disabled" class="disabled-section" hidden>
+        <p class="section-kicker">页面访问已关闭</p>
+        <h2>请先在 AstrBot 插件设置中开启“启用境的管理页面”</h2>
+      </section>
+
+      <section class="setup-section page-managed">
         <div class="section-heading">
           <div>
             <p class="section-kicker">快速设置</p>
@@ -54,13 +59,74 @@
               autocomplete="off"
               placeholder="例如：杭州"
             />
+            <button id="use-device-location" class="secondary" type="button">
+              使用当前设备位置
+            </button>
             <button id="save" type="submit">保存并校验</button>
           </div>
         </form>
         <p id="setup-result" class="result" role="status"></p>
       </section>
 
-      <section class="probe-section">
+      <section class="usage-section page-managed">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">调用统计</p>
+            <h2>使用概览</h2>
+          </div>
+        </div>
+        <div class="usage-summary" aria-label="调用统计摘要">
+          <div>
+            <span class="label">累计调用</span>
+            <strong id="usage-total">0</strong>
+          </div>
+          <div>
+            <span class="label">成功</span>
+            <strong id="usage-success">0</strong>
+          </div>
+          <div>
+            <span class="label">失败</span>
+            <strong id="usage-failed">0</strong>
+          </div>
+          <div>
+            <span class="label">最常用入口</span>
+            <strong id="usage-top-source">-</strong>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>入口</th>
+                <th>功能</th>
+                <th>结果</th>
+                <th>耗时</th>
+              </tr>
+            </thead>
+            <tbody id="usage-recent">
+              <tr><td colspan="5" class="empty-cell">暂无调用记录</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="privacy-note" id="usage-privacy"></p>
+      </section>
+
+      <section class="config-section page-managed">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">参数管理</p>
+            <h2>插件配置</h2>
+          </div>
+          <button id="save-config" type="submit" form="config-form">保存配置</button>
+        </div>
+        <form id="config-form" class="config-form">
+          <div id="config-groups"></div>
+        </form>
+        <p id="config-result" class="result" role="status"></p>
+      </section>
+
+      <section class="probe-section page-managed">
         <div class="section-heading">
           <div>
             <p class="section-kicker">实时检查</p>
@@ -105,7 +171,7 @@
         <p id="probe-result" class="result" role="status"></p>
       </section>
 
-      <section class="filter-section">
+      <section class="filter-section page-managed">
         <div class="section-heading">
           <div>
             <p class="section-kicker">过滤边界</p>
@@ -146,6 +212,6 @@
     </main>
 
     <script src="/api/plugin/page/bridge-sdk.js"></script>
-    <script type="module" src="./app.js?v=20260730-opportunity"></script>
+    <script type="module" src="./app.js?v=20260730-page-config"></script>
   </body>
 </html>

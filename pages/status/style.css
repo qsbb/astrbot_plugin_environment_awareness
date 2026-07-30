@@ -16,9 +16,14 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
   letter-spacing: 0;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 .shell {
@@ -31,7 +36,8 @@ input {
 .section-heading,
 .input-row,
 .status-band,
-.probe-grid {
+.probe-grid,
+.usage-summary {
   display: flex;
   align-items: center;
 }
@@ -89,7 +95,8 @@ section {
 }
 
 .status-band > div,
-.probe-grid > div {
+.probe-grid > div,
+.usage-summary > div {
   min-width: 0;
   padding: 17px;
   background: #12191b;
@@ -123,7 +130,8 @@ strong {
   gap: 10px;
 }
 
-input {
+input,
+select {
   min-width: 0;
   flex: 1;
   height: 44px;
@@ -136,6 +144,11 @@ input {
 }
 
 input:focus {
+  border-color: #54d7c5;
+  box-shadow: 0 0 0 3px rgba(84, 215, 197, 0.13);
+}
+
+select:focus {
   border-color: #54d7c5;
   box-shadow: 0 0 0 3px rgba(84, 215, 197, 0.13);
 }
@@ -190,6 +203,155 @@ button:disabled {
   margin-top: 22px;
 }
 
+.disabled-section {
+  border: 1px solid #8b6730;
+  background: #1d1a14;
+  padding: 22px;
+}
+
+.disabled-section h2 {
+  max-width: 760px;
+  color: #f2c46d;
+  line-height: 1.5;
+}
+
+.usage-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 22px;
+  gap: 1px;
+  border: 1px solid #334043;
+  background: #334043;
+}
+
+.table-wrap {
+  width: 100%;
+  margin-top: 18px;
+  overflow-x: auto;
+  border-top: 1px solid #334043;
+  border-bottom: 1px solid #334043;
+}
+
+table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+th,
+td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #263235;
+  text-align: left;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+th {
+  color: #9cb0ba;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+td[data-status="success"] {
+  color: #8ee2b0;
+}
+
+td[data-status="error"] {
+  color: #ff9b94;
+}
+
+td[data-status="suppressed"] {
+  color: #f2c46d;
+}
+
+.empty-cell {
+  color: #9cb0ba;
+  text-align: center;
+}
+
+.privacy-note {
+  margin: 12px 0 0;
+  color: #82969f;
+  font-size: 12px;
+}
+
+.config-form {
+  margin-top: 20px;
+}
+
+.config-group {
+  border-top: 1px solid #334043;
+}
+
+.config-group:last-child {
+  border-bottom: 1px solid #334043;
+}
+
+.config-group summary {
+  cursor: pointer;
+  padding: 15px 4px;
+  color: #dce8ec;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  padding: 4px 4px 22px;
+}
+
+.config-field {
+  min-width: 0;
+}
+
+.config-field > label {
+  display: block;
+  margin-bottom: 8px;
+  color: #c2d0d5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.config-field input:not([type="checkbox"]),
+.config-field select {
+  width: 100%;
+}
+
+.toggle-line {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 10px;
+}
+
+.toggle-line input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  accent-color: #54d7c5;
+}
+
+.toggle-line label {
+  color: #c2d0d5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field-hint {
+  margin: 7px 0 0;
+  color: #82969f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .result {
   min-height: 20px;
   margin: 14px 0 0;
@@ -238,8 +400,13 @@ button:disabled {
   }
 
   .status-band,
-  .probe-grid {
+  .probe-grid,
+  .usage-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
   }
 
   .filter-list {
@@ -257,6 +424,7 @@ button:disabled {
 
   .status-band,
   .probe-grid,
+  .usage-summary,
   .filter-list {
     grid-template-columns: 1fr;
   }

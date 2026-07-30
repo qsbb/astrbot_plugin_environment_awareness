@@ -1,4 +1,11 @@
 {
+  "page_enabled": {
+    "description": "启用境的管理页面",
+    "type": "bool",
+    "hint": "默认关闭。开启后才允许通过 Plugin Page 查看调用统计、编辑配置、测试数据源和使用浏览器定位；关闭时只保留最小状态响应。",
+    "obvious_hint": true,
+    "default": false
+  },
   "default_location": {
     "description": "全局常驻地点",
     "type": "string",
@@ -16,7 +23,9 @@
     "description": "默认逐日预报天数",
     "type": "int",
     "hint": "范围 1-7 天。",
-    "default": 3
+    "default": 3,
+    "minimum": 1,
+    "maximum": 7
   },
   "calendar_awareness_enabled": {
     "description": "重要节假日与调休轻量感知",
@@ -46,7 +55,9 @@
     "description": "官方预警最大发布时长（小时）",
     "type": "int",
     "hint": "范围 1-168；超过该发布时间的记录即使仍在来源列表中也不会返回。",
-    "default": 72
+    "default": 72,
+    "minimum": 1,
+    "maximum": 168
   },
   "official_warning_province": {
     "description": "官方预警省级地区覆盖",
@@ -65,7 +76,9 @@
     "description": "环境关心候选刷新间隔（秒）",
     "type": "int",
     "hint": "范围 300-21600，默认 15 分钟。刷新在后台运行，不计入普通回复耗时。",
-    "default": 900
+    "default": 900,
+    "minimum": 300,
+    "maximum": 21600
   },
   "opportunity_min_severity": {
     "description": "生成关心候选的最低严重度",
@@ -77,22 +90,30 @@
   "opportunity_european_aqi_threshold": {
     "description": "欧洲 AQI 关心阈值",
     "type": "float",
-    "default": 80
+    "default": 80,
+    "minimum": 20,
+    "maximum": 500
   },
   "opportunity_us_aqi_threshold": {
     "description": "美国 AQI 关心阈值",
     "type": "float",
-    "default": 151
+    "default": 151,
+    "minimum": 50,
+    "maximum": 500
   },
   "opportunity_uv_threshold": {
     "description": "紫外线指数关心阈值",
     "type": "float",
-    "default": 8
+    "default": 8,
+    "minimum": 3,
+    "maximum": 20
   },
   "opportunity_temperature_drop_c": {
     "description": "相邻两天强降温阈值（°C）",
     "type": "float",
-    "default": 8
+    "default": 8,
+    "minimum": 3,
+    "maximum": 30
   },
   "care_person_id": {
     "description": "关心对象的自然人 ID",
@@ -143,37 +164,49 @@
     "description": "主动环境关心每日上限",
     "type": "int",
     "hint": "按常驻地点当地日期计数，范围 1-10；相同事件还会跨重启去重。",
-    "default": 1
+    "default": 1,
+    "minimum": 1,
+    "maximum": 10
   },
   "earthquake_min_magnitude": {
     "description": "地震最低震级",
     "type": "float",
     "hint": "低于此震级的事件不进入相关性判断。USGS 首版数据源为 M2.5+，因此有效下限是 2.5。",
-    "default": 2.5
+    "default": 2.5,
+    "minimum": 2.5,
+    "maximum": 9.9
   },
   "earthquake_max_distance_km": {
     "description": "地震感知绝对最远距离（公里）",
     "type": "float",
     "hint": "事件还必须通过震级对应的更严格影响半径；超过该距离始终不让模型感知。",
-    "default": 1200
+    "default": 1200,
+    "minimum": 10,
+    "maximum": 10000
   },
   "earthquake_nearby_radius_km": {
     "description": "近场关注半径（公里）",
     "type": "float",
     "hint": "达到最低震级且发生在该范围内时视为本地相关。",
-    "default": 30
+    "default": 30,
+    "minimum": 1,
+    "maximum": 500
   },
   "tsunami_relevance_distance_km": {
     "description": "海啸标记事件最远相关距离（公里）",
     "type": "float",
     "hint": "仍受地震感知绝对最远距离限制，不会因为海啸标记感知全球事件。",
-    "default": 1200
+    "default": 1200,
+    "minimum": 10,
+    "maximum": 10000
   },
   "max_hazard_events": {
     "description": "单次最多返回的风险事件",
     "type": "int",
     "hint": "范围 1-20，避免挤占对话上下文。",
-    "default": 5
+    "default": 5,
+    "minimum": 1,
+    "maximum": 20
   },
   "weather_risk_enabled": {
     "description": "感知本地强天气模型信号",
@@ -184,53 +217,73 @@
   "heavy_rain_mm": {
     "description": "日累计强降水阈值（毫米）",
     "type": "float",
-    "default": 50
+    "default": 50,
+    "minimum": 10,
+    "maximum": 500
   },
   "strong_wind_kmh": {
     "description": "强阵风阈值（km/h）",
     "type": "float",
-    "default": 62
+    "default": 62,
+    "minimum": 20,
+    "maximum": 250
   },
   "extreme_heat_c": {
     "description": "高温感知阈值（°C）",
     "type": "float",
-    "default": 40
+    "default": 40,
+    "minimum": 25,
+    "maximum": 60
   },
   "extreme_cold_c": {
     "description": "低温感知阈值（°C）",
     "type": "float",
-    "default": -20
+    "default": -20,
+    "minimum": -60,
+    "maximum": 10
   },
   "request_timeout_seconds": {
     "description": "数据源请求超时（秒）",
     "type": "float",
     "hint": "范围 2-20 秒；按需工具会在模型实际调用时联网，开启后台候选后其刷新任务也会独立联网，但普通回复钩子不会等待这些请求。",
-    "default": 6
+    "default": 6,
+    "minimum": 2,
+    "maximum": 20
   },
   "weather_current_ttl_seconds": {
     "description": "当前天气缓存时间（秒）",
     "type": "int",
-    "default": 600
+    "default": 600,
+    "minimum": 60,
+    "maximum": 3600
   },
   "weather_forecast_ttl_seconds": {
     "description": "天气预报缓存时间（秒）",
     "type": "int",
-    "default": 1800
+    "default": 1800,
+    "minimum": 300,
+    "maximum": 21600
   },
   "air_quality_ttl_seconds": {
     "description": "空气质量缓存时间（秒）",
     "type": "int",
-    "default": 1800
+    "default": 1800,
+    "minimum": 300,
+    "maximum": 21600
   },
   "hazard_ttl_seconds": {
     "description": "灾害数据缓存时间（秒）",
     "type": "int",
-    "default": 300
+    "default": 300,
+    "minimum": 60,
+    "maximum": 1800
   },
   "stale_cache_seconds": {
     "description": "数据源故障时可回退的旧缓存时长（秒）",
     "type": "int",
     "hint": "回退结果始终带 stale=true，不会伪装成实时数据。设为 0 可关闭。",
-    "default": 3600
+    "default": 3600,
+    "minimum": 0,
+    "maximum": 86400
   }
 }

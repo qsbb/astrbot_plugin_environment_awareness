@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+import astrbot_plugin_environment_awareness.main as main_module
 from astrbot.api import AstrBotConfig
 from astrbot_plugin_environment_awareness.main import EnvironmentAwarenessPlugin
 
@@ -31,9 +32,78 @@ def test_plugin_initialization_registers_tools_and_page_apis_without_network():
     context = FakeContext()
     plugin = EnvironmentAwarenessPlugin(context, AstrBotConfig())
     assert len(context.tools) == 6
-    assert len(context.routes) == 3
+    assert len(context.routes) == 5
     assert plugin.service.diagnostics()["provider_last_success"] == {}
     asyncio.run(plugin.terminate())
+
+
+def test_page_is_disabled_by_default_and_only_returns_minimal_status():
+    plugin = EnvironmentAwarenessPlugin(FakeContext(), AstrBotConfig())
+    status = asyncio.run(plugin._page_status())
+    assert status["status_code"] == 200
+    assert status["payload"]["page_enabled"] is False
+    assert "usage" not in status["payload"]
+    setup = asyncio.run(plugin._page_setup())
+    assert setup == {
+        "error": "境的管理页面未启用，请先在 AstrBot 插件设置中开启",
+        "status_code": 403,
+    }
+    asyncio.run(plugin.terminate())
+
+
+def test_page_config_validates_persists_and_applies_values(monkeypatch):
+    class SavingConfig(AstrBotConfig):
+        saves = 0
+
+        def save_config(self):
+            self.saves += 1
+
+    async def scenario():
+        config = SavingConfig({"page_enabled": True})
+        plugin = EnvironmentAwarenessPlugin(FakeContext(), config)
+
+        async def valid_json(default=None):
+            del default
+            return {
+                "forecast_days": 5,
+                "calendar_awareness_enabled": False,
+                "request_timeout_seconds": 8,
+            }
+
+        monkeypatch.setattr(main_module, "request", SimpleNamespace(json=valid_json))
+        response = await plugin._page_save_config()
+        assert response["status_code"] == 200
+        assert response["payload"]["changed"] == [
+            "calendar_awareness_enabled",
+            "forecast_days",
+            "request_timeout_seconds",
+        ]
+        assert config["forecast_days"] == 5
+        assert plugin.service.settings().calendar_awareness_enabled is False
+        assert plugin._http_client.timeout.read == 8
+        assert config.saves == 1
+
+        async def invalid_json(default=None):
+            del default
+            return {"forecast_days": 99}
+
+        monkeypatch.setattr(main_module, "request", SimpleNamespace(json=invalid_json))
+        invalid = await plugin._page_save_config()
+        assert invalid["status_code"] == 400
+        assert config["forecast_days"] == 5
+
+        async def invalid_clock_json(default=None):
+            del default
+            return {"proactive_quiet_start": "25:00"}
+
+        monkeypatch.setattr(
+            main_module, "request", SimpleNamespace(json=invalid_clock_json)
+        )
+        invalid_clock = await plugin._page_save_config()
+        assert invalid_clock["status_code"] == 400
+        await plugin.terminate()
+
+    asyncio.run(scenario())
 
 
 def test_plugin_health_matches_update_manager_contract_without_requiring_location():
@@ -48,7 +118,7 @@ def test_plugin_health_matches_update_manager_contract_without_requiring_locatio
             "tools_registered": True,
         },
         "reasons": [],
-        "version": "0.1.1",
+        "version": "0.1.2",
     }
     asyncio.run(plugin.terminate())
 

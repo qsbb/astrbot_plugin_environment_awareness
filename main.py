@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import copy
 import inspect
+import json
+import math
+import pathlib
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -32,10 +35,11 @@ from .core.proactive import ProactiveDeliveryState, local_delivery_window
 from .core.providers import OpenDataProvider
 from .core.service import EnvironmentService
 from .core.settings import EnvironmentSettings
+from .core.usage import UsageTracker
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.1.1"
+PLUGIN_VERSION = "0.1.2"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -100,6 +104,7 @@ class EnvironmentAwarenessPlugin(Star):
         self._background_task: asyncio.Task[None] | None = None
         self._stopping = False
         data_dir = StarTools.get_data_dir(PLUGIN_NAME)
+        self._usage = UsageTracker(f"{data_dir}/usage-stats.json")
         self._delivery_state = ProactiveDeliveryState(
             f"{data_dir}/proactive-delivery-state.json"
         )
@@ -119,6 +124,26 @@ class EnvironmentAwarenessPlugin(Star):
             settings.default_location or "未设置",
             "on" if settings.opportunity_cache_enabled else "off",
             "on" if settings.proactive_enabled else "off",
+        )
+
+    def record_invocation(
+        self,
+        source: str,
+        action: str,
+        *,
+        status: str = "success",
+        started_at: float | None = None,
+    ) -> None:
+        duration_ms = (
+            round((time.perf_counter() - started_at) * 1000)
+            if started_at is not None
+            else 0
+        )
+        self._usage.record(
+            source,
+            action,
+            status=status,
+            duration_ms=duration_ms,
         )
 
     def environment_opportunity_contract(self) -> dict[str, object]:
@@ -375,6 +400,7 @@ class EnvironmentAwarenessPlugin(Star):
         if not callable(deliver):
             self._proactive_last_status = "delivery_method_unavailable"
             return
+        started_at = time.perf_counter()
         try:
             result = deliver(
                 candidate,
@@ -385,9 +411,18 @@ class EnvironmentAwarenessPlugin(Star):
                 result = await result
         except Exception as exc:
             self._proactive_last_status = f"delivery_error:{type(exc).__name__}"
+            self.record_invocation(
+                "proactive",
+                "environment_delivery",
+                status="error",
+                started_at=started_at,
+            )
             logger.warning("境请求言发送环境关心失败: %s", exc)
             return
         if isinstance(result, dict) and result.get("sent") is True:
+            self.record_invocation(
+                "proactive", "environment_delivery", started_at=started_at
+            )
             self._delivery_state.mark_sent(
                 event_key,
                 severity,
@@ -396,6 +431,12 @@ class EnvironmentAwarenessPlugin(Star):
             )
             self._proactive_last_status = "sent"
         else:
+            self.record_invocation(
+                "proactive",
+                "environment_delivery",
+                status="suppressed",
+                started_at=started_at,
+            )
             reason = str(
                 result.get("reason") if isinstance(result, dict) else "suppressed"
             )[:80]
@@ -415,6 +456,7 @@ class EnvironmentAwarenessPlugin(Star):
     @filter.command("environment", alias={"境"})
     async def environment_status(self, event: AstrMessageEvent):
         """查看境的配置与数据源状态。"""
+        started_at = time.perf_counter()
         diagnostics = self._runtime_diagnostics()
         location = diagnostics["default_location"] or "未设置"
         candidate = diagnostics["opportunity_cache"].get("candidate")
@@ -423,7 +465,7 @@ class EnvironmentAwarenessPlugin(Star):
             if isinstance(candidate, dict)
             else "暂无"
         )
-        yield event.plain_result(
+        result = event.plain_result(
             "凝心溯溪-境\n"
             f"常驻地点：{location}\n"
             "数据源：Open-Meteo / 中央气象台 / USGS（无需 API Key）\n"
@@ -432,14 +474,21 @@ class EnvironmentAwarenessPlugin(Star):
             "模式：按需工具；普通回复只读后台缓存，不同步联网\n"
             "命令：/境时间、/境日历、/境天气、/境空气、/境预警"
         )
+        self.record_invocation("command", "境", started_at=started_at)
+        yield result
 
     @filter.command("env_time", alias={"境时间"})
     async def environment_time(self, event: AstrMessageEvent, location: str = ""):
         """查询当地时间。"""
+        started_at = time.perf_counter()
         try:
             snapshot = await self.service.datetime_snapshot(location)
+            self.record_invocation("command", "境时间", started_at=started_at)
             yield event.plain_result(format_datetime(snapshot))
         except Exception as exc:
+            self.record_invocation(
+                "command", "境时间", status="error", started_at=started_at
+            )
             yield event.plain_result(f"时间查询失败：{str(exc)[:200]}")
 
     @filter.command("env_calendar", alias={"境日历"})
@@ -450,10 +499,15 @@ class EnvironmentAwarenessPlugin(Star):
         date_text: str = "",
     ):
         """查询当地节假日、调休与工作日。"""
+        started_at = time.perf_counter()
         try:
             snapshot = await self.service.calendar_snapshot(location, date_text)
+            self.record_invocation("command", "境日历", started_at=started_at)
             yield event.plain_result(format_calendar(snapshot))
         except Exception as exc:
+            self.record_invocation(
+                "command", "境日历", status="error", started_at=started_at
+            )
             yield event.plain_result(f"日历查询失败：{str(exc)[:200]}")
 
     @filter.command("env_weather", alias={"境天气"})
@@ -464,12 +518,17 @@ class EnvironmentAwarenessPlugin(Star):
         forecast_range: str = "current",
     ):
         """查询当前天气或预报。"""
+        started_at = time.perf_counter()
         try:
             snapshot = await self.service.weather_snapshot(
                 location, forecast_range, self.service.settings().forecast_days
             )
+            self.record_invocation("command", "境天气", started_at=started_at)
             yield event.plain_result(format_weather(snapshot))
         except Exception as exc:
+            self.record_invocation(
+                "command", "境天气", status="error", started_at=started_at
+            )
             yield event.plain_result(f"天气查询失败：{str(exc)[:200]}")
 
     @filter.command("env_air", alias={"境空气"})
@@ -480,10 +539,15 @@ class EnvironmentAwarenessPlugin(Star):
         forecast_hours: int = 0,
     ):
         """查询空气质量、紫外线与花粉。"""
+        started_at = time.perf_counter()
         try:
             snapshot = await self.service.air_quality_snapshot(location, forecast_hours)
+            self.record_invocation("command", "境空气", started_at=started_at)
             yield event.plain_result(format_air_quality(snapshot))
         except Exception as exc:
+            self.record_invocation(
+                "command", "境空气", status="error", started_at=started_at
+            )
             yield event.plain_result(f"空气质量查询失败：{str(exc)[:200]}")
 
     @filter.command("env_alerts", alias={"境预警"})
@@ -491,10 +555,15 @@ class EnvironmentAwarenessPlugin(Star):
         self, event: AstrMessageEvent, location: str = "", hours: int = 24
     ):
         """查询与地点相关的环境风险。"""
+        started_at = time.perf_counter()
         try:
             snapshot = await self.service.alerts_snapshot(location, hours)
+            self.record_invocation("command", "境预警", started_at=started_at)
             yield event.plain_result(format_alerts(snapshot))
         except Exception as exc:
+            self.record_invocation(
+                "command", "境预警", status="error", started_at=started_at
+            )
             yield event.plain_result(f"环境风险查询失败：{str(exc)[:200]}")
 
     # 情 600 之后、言 500 之前：只补离线日历事实，不改变权限与表达约束。
@@ -528,6 +597,7 @@ class EnvironmentAwarenessPlugin(Star):
             if seen_key not in self._calendar_awareness_seen:
                 if "[境·当地日历]" not in prompt:
                     prompt = f"{prompt}\n\n{fragment}" if prompt else fragment
+                    self.record_invocation("awareness", "calendar_prompt")
                 self._calendar_awareness_seen.add(seen_key)
                 if len(self._calendar_awareness_seen) > 4096:
                     self._calendar_awareness_seen = {seen_key}
@@ -551,6 +621,7 @@ class EnvironmentAwarenessPlugin(Star):
                 )
                 if fragment and "[境·环境关心候选]" not in prompt:
                     prompt = f"{prompt}\n\n{fragment}" if prompt else fragment
+                    self.record_invocation("awareness", "opportunity_prompt")
                     self._opportunity_awareness_seen.add(seen_key)
                     if len(self._opportunity_awareness_seen) > 4096:
                         self._opportunity_awareness_seen = {seen_key}
@@ -576,8 +647,43 @@ class EnvironmentAwarenessPlugin(Star):
             ["POST"],
             "测试境的数据源与本地相关性",
         )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/config",
+            self._page_config,
+            ["GET"],
+            "获取境的页面配置",
+        )
+        self.context.register_web_api(
+            f"/{PLUGIN_NAME}/config",
+            self._page_save_config,
+            ["POST"],
+            "保存境的页面配置",
+        )
+
+    def _page_enabled(self) -> bool:
+        return self.service.settings().page_enabled
+
+    def _page_disabled_response(self):
+        if self._page_enabled():
+            return None
+        return error_response(
+            "境的管理页面未启用，请先在 AstrBot 插件设置中开启",
+            status_code=403,
+        )
 
     async def _page_status(self):
+        if not self._page_enabled():
+            return json_response(
+                {
+                    "plugin": {
+                        "name": PLUGIN_NAME,
+                        "display_name": "凝心溯溪-境",
+                        "version": PLUGIN_VERSION,
+                    },
+                    "ready": True,
+                    "page_enabled": False,
+                }
+            )
         return json_response(
             {
                 "plugin": {
@@ -586,6 +692,7 @@ class EnvironmentAwarenessPlugin(Star):
                     "version": PLUGIN_VERSION,
                 },
                 **self._runtime_diagnostics(),
+                "page_enabled": True,
             }
         )
 
@@ -631,11 +738,176 @@ class EnvironmentAwarenessPlugin(Star):
                     "state": self._delivery_state.snapshot(),
                 },
                 "active_push": settings.proactive_enabled,
+                "usage": self._usage.snapshot(),
             }
         )
         return diagnostics
 
+    @staticmethod
+    def _page_schema() -> dict[str, dict[str, Any]]:
+        path = pathlib.Path(__file__).with_name("_conf_schema.json")
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _public_config(self) -> dict[str, Any]:
+        return {
+            key: self.config.get(key, field.get("default"))
+            for key, field in self._page_schema().items()
+        }
+
+    @staticmethod
+    def _coerce_page_value(key: str, value: Any, field: dict[str, Any]) -> Any:
+        kind = field.get("type")
+        if kind == "bool":
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str) and value.lower() in {"true", "false"}:
+                return value.lower() == "true"
+            raise ValueError(key)
+        if kind == "int":
+            if isinstance(value, bool):
+                raise ValueError(key)
+            number = int(value)
+            if float(value) != number:
+                raise ValueError(key)
+            value = number
+        elif kind == "float":
+            if isinstance(value, bool):
+                raise ValueError(key)
+            value = float(value)
+            if not math.isfinite(value):
+                raise ValueError(key)
+        elif kind == "string":
+            value = str(value).strip()
+            if len(value) > 512:
+                raise ValueError(key)
+            options = field.get("options")
+            if options and value not in options:
+                raise ValueError(key)
+            if key in {"proactive_quiet_start", "proactive_quiet_end"}:
+                parts = value.split(":")
+                if len(parts) != 2 or not all(part.isdigit() for part in parts):
+                    raise ValueError(key)
+                hour, minute = (int(part) for part in parts)
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    raise ValueError(key)
+                value = f"{hour:02d}:{minute:02d}"
+            elif key == "calendar_country_code":
+                value = value.upper()
+            return value
+        else:
+            raise TypeError(key)
+        minimum = field.get("minimum")
+        maximum = field.get("maximum")
+        if minimum is not None and value < minimum:
+            raise ValueError(key)
+        if maximum is not None and value > maximum:
+            raise ValueError(key)
+        return value
+
+    async def _page_config(self):
+        disabled = self._page_disabled_response()
+        if disabled is not None:
+            return disabled
+        return json_response(
+            {
+                "ok": True,
+                "config": self._public_config(),
+                "schema": self._page_schema(),
+            }
+        )
+
+    async def _page_save_config(self):
+        disabled = self._page_disabled_response()
+        if disabled is not None:
+            return disabled
+        payload = await request.json(default={}) or {}
+        if not isinstance(payload, dict):
+            return error_response("请求格式错误", status_code=400)
+        schema = self._page_schema()
+        current = self._public_config()
+        changes: dict[str, Any] = {}
+        errors: dict[str, str] = {}
+        for key, value in payload.items():
+            if key == "default_location":
+                errors[key] = "请使用常驻地点的保存并校验按钮"
+                continue
+            if key not in schema:
+                errors[key] = "未知配置项"
+                continue
+            try:
+                coerced = self._coerce_page_value(key, value, schema[key])
+            except (TypeError, ValueError, OverflowError):
+                errors[key] = "配置值无效"
+                continue
+            if coerced != current.get(key):
+                changes[key] = coerced
+        if errors:
+            detail = "；".join(
+                f"{key}: {value}" for key, value in errors.items()
+            )
+            return error_response(
+                f"配置校验失败：{detail}",
+                status_code=400,
+            )
+        if not changes:
+            return json_response(
+                {
+                    "ok": True,
+                    "config": current,
+                    "changed": [],
+                    "restart_required": False,
+                }
+            )
+
+        previous = {key: (key in self.config, self.config.get(key)) for key in changes}
+        try:
+            self.config.update(changes)
+            save = getattr(self.config, "save_config", None)
+            if callable(save):
+                save()
+        except Exception as exc:
+            for key, (existed, value) in previous.items():
+                if existed:
+                    self.config[key] = value
+                else:
+                    self.config.pop(key, None)
+            return error_response(f"配置保存失败：{str(exc)[:160]}", status_code=500)
+
+        if "request_timeout_seconds" in changes:
+            self._http_client.timeout = httpx.Timeout(
+                self.service.settings().request_timeout_seconds
+            )
+        await self._restart_background_task(clear_candidate=True)
+        return json_response(
+            {
+                "ok": True,
+                "config": self._public_config(),
+                "changed": sorted(changes),
+                "restart_required": False,
+            }
+        )
+
+    async def _restart_background_task(self, *, clear_candidate: bool) -> None:
+        if clear_candidate:
+            self._cached_opportunity = None
+            self._opportunity_cached_at = 0.0
+            self._opportunity_location_setting = ""
+            self._opportunity_awareness_seen.clear()
+        task = self._background_task
+        self._background_task = None
+        if task is not None and not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        self._ensure_background_task()
+
     async def _page_setup(self):
+        disabled = self._page_disabled_response()
+        if disabled is not None:
+            return disabled
         payload = await request.json(default={}) or {}
         if not isinstance(payload, dict):
             return error_response("请求格式错误", status_code=400)
@@ -650,16 +922,7 @@ class EnvironmentAwarenessPlugin(Star):
             return error_response(f"地点校验失败：{str(exc)[:180]}", status_code=400)
         self.config["default_location"] = location
         self.service.remember_default_location(location, resolved)
-        self._cached_opportunity = None
-        self._opportunity_cached_at = 0.0
-        self._opportunity_location_setting = ""
-        self._opportunity_awareness_seen.clear()
-        task = self._background_task
-        self._background_task = None
-        if task is not None and not task.done():
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-        self._ensure_background_task()
+        await self._restart_background_task(clear_candidate=True)
         return json_response(
             {
                 "ok": True,
@@ -669,6 +932,9 @@ class EnvironmentAwarenessPlugin(Star):
         )
 
     async def _page_probe(self):
+        disabled = self._page_disabled_response()
+        if disabled is not None:
+            return disabled
         payload = await request.json(default={}) or {}
         if not isinstance(payload, dict):
             return error_response("请求格式错误", status_code=400)

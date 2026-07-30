@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from pydantic import Field
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
@@ -14,6 +16,12 @@ from .core.formatters import to_tool_json
 
 def _error(message: str) -> str:
     return to_tool_json({"status": "error", "message": str(message)[:300]})
+
+
+def _record_invocation(plugin, action: str, status: str, started_at: float) -> None:
+    record = getattr(plugin, "record_invocation", None)
+    if callable(record):
+        record("llm_tool", action, status=status, started_at=started_at)
 
 
 @pydantic_dataclass
@@ -41,12 +49,15 @@ class GetLocalDatetimeTool(FunctionTool):  # type: ignore[misc]
     )
 
     async def call(self, context, **kwargs) -> ToolExecResult:  # type: ignore[override]
+        started_at = time.perf_counter()
         try:
             data = await self._plugin.service.datetime_snapshot(
                 str(kwargs.get("location") or "")
             )
+            _record_invocation(self._plugin, self.name, "success", started_at)
             return to_tool_json(data)
         except Exception as exc:
+            _record_invocation(self._plugin, self.name, "error", started_at)
             return _error(str(exc))
 
 
@@ -80,13 +91,16 @@ class GetLocalCalendarTool(FunctionTool):  # type: ignore[misc]
     )
 
     async def call(self, context, **kwargs) -> ToolExecResult:  # type: ignore[override]
+        started_at = time.perf_counter()
         try:
             data = await self._plugin.service.calendar_snapshot(
                 str(kwargs.get("location") or ""),
                 str(kwargs.get("date") or ""),
             )
+            _record_invocation(self._plugin, self.name, "success", started_at)
             return to_tool_json(data)
         except Exception as exc:
+            _record_invocation(self._plugin, self.name, "error", started_at)
             return _error(str(exc))
 
 
@@ -131,14 +145,17 @@ class GetWeatherTool(FunctionTool):  # type: ignore[misc]
     )
 
     async def call(self, context, **kwargs) -> ToolExecResult:  # type: ignore[override]
+        started_at = time.perf_counter()
         try:
             data = await self._plugin.service.weather_snapshot(
                 str(kwargs.get("location") or ""),
                 str(kwargs.get("forecast_range") or "current"),
                 int(kwargs.get("days") or 3),
             )
+            _record_invocation(self._plugin, self.name, "success", started_at)
             return to_tool_json(data)
         except Exception as exc:
+            _record_invocation(self._plugin, self.name, "error", started_at)
             return _error(str(exc))
 
 
@@ -173,13 +190,16 @@ class GetAirQualityTool(FunctionTool):  # type: ignore[misc]
     )
 
     async def call(self, context, **kwargs) -> ToolExecResult:  # type: ignore[override]
+        started_at = time.perf_counter()
         try:
             data = await self._plugin.service.air_quality_snapshot(
                 str(kwargs.get("location") or ""),
                 int(kwargs.get("forecast_hours") or 0),
             )
+            _record_invocation(self._plugin, self.name, "success", started_at)
             return to_tool_json(data)
         except Exception as exc:
+            _record_invocation(self._plugin, self.name, "error", started_at)
             return _error(str(exc))
 
 
@@ -215,12 +235,15 @@ class GetEnvironmentAlertsTool(FunctionTool):  # type: ignore[misc]
     )
 
     async def call(self, context, **kwargs) -> ToolExecResult:  # type: ignore[override]
+        started_at = time.perf_counter()
         try:
             data = await self._plugin.service.alerts_snapshot(
                 str(kwargs.get("location") or ""), int(kwargs.get("hours") or 24)
             )
+            _record_invocation(self._plugin, self.name, "success", started_at)
             return to_tool_json(data)
         except Exception as exc:
+            _record_invocation(self._plugin, self.name, "error", started_at)
             return _error(str(exc))
 
 
@@ -237,7 +260,14 @@ class ListEnvironmentLocationsTool(FunctionTool):  # type: ignore[misc]
     )
 
     async def call(self, context, **kwargs) -> ToolExecResult:  # type: ignore[override]
-        return to_tool_json(self._plugin.service.list_locations())
+        started_at = time.perf_counter()
+        try:
+            result = to_tool_json(self._plugin.service.list_locations())
+            _record_invocation(self._plugin, self.name, "success", started_at)
+            return result
+        except Exception as exc:
+            _record_invocation(self._plugin, self.name, "error", started_at)
+            return _error(str(exc))
 
 
 def create_tools(plugin) -> list:
