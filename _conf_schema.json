@@ -1,11 +1,4 @@
 {
-  "page_enabled": {
-    "description": "启用境的管理页面",
-    "type": "bool",
-    "hint": "默认关闭。开启后才允许通过 Plugin Page 查看调用统计、编辑配置、测试数据源和使用浏览器定位；关闭时只保留最小状态响应。",
-    "obvious_hint": true,
-    "default": false
-  },
   "default_location": {
     "description": "全局常驻地点",
     "type": "string",

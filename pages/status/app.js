@@ -3,8 +3,6 @@ const bridge = window.AstrBotPluginPage;
 const elements = {
   runtimeStatus: document.getElementById("runtime-status"),
   version: document.getElementById("plugin-version"),
-  pageDisabled: document.getElementById("page-disabled"),
-  managedSections: [...document.querySelectorAll(".page-managed")],
   location: document.getElementById("default-location"),
   locationState: document.getElementById("location-state"),
   setupResult: document.getElementById("setup-result"),
@@ -53,7 +51,7 @@ const weatherNames = new Map([
 const configGroups = [
   {
     title: "页面与基础",
-    keys: ["page_enabled", "language", "forecast_days"],
+    keys: ["language", "forecast_days"],
   },
   {
     title: "日历与官方预警",
@@ -125,13 +123,6 @@ function setResult(element, message, type = "") {
 function setLocationState(configured) {
   elements.locationState.textContent = configured ? "已设置" : "未设置";
   elements.locationState.className = `state ${configured ? "ready" : "neutral"}`;
-}
-
-function setPageEnabled(enabled) {
-  elements.pageDisabled.hidden = enabled;
-  for (const section of elements.managedSections) {
-    section.hidden = !enabled;
-  }
 }
 
 function formatTimestamp(value) {
@@ -231,11 +222,9 @@ async function loadStatus() {
   try {
     const status = await bridge.apiGet("status");
     elements.version.textContent = status.plugin?.version || "-";
-    const enabled = status.page_enabled === true;
-    setPageEnabled(enabled);
-    elements.runtimeStatus.textContent = enabled ? (status.ready ? "正常" : "异常") : "页面关闭";
-    if (enabled) renderRuntime(status);
-    return enabled;
+    elements.runtimeStatus.textContent = status.ready ? "正常" : "异常";
+    renderRuntime(status);
+    return true;
   } catch (error) {
     elements.runtimeStatus.textContent = "连接失败";
     setResult(elements.setupResult, error?.message || "无法读取插件状态", "error");
@@ -432,8 +421,8 @@ elements.configForm.addEventListener("submit", async (event) => {
       count > 0 ? `已保存 ${count} 项配置` : "配置没有变化",
       "success",
     );
-    const enabled = await loadStatus();
-    if (enabled) await loadConfig();
+    await loadStatus();
+    await loadConfig();
   } catch (error) {
     setResult(elements.configResult, error?.message || "配置保存失败", "error");
   } finally {
@@ -486,13 +475,11 @@ elements.probe.addEventListener("click", async () => {
 });
 
 async function refreshAll() {
-  const enabled = await loadStatus();
-  if (enabled) {
-    try {
-      await loadConfig();
-    } catch (error) {
-      setResult(elements.configResult, error?.message || "无法读取配置", "error");
-    }
+  await loadStatus();
+  try {
+    await loadConfig();
+  } catch (error) {
+    setResult(elements.configResult, error?.message || "无法读取配置", "error");
   }
 }
 

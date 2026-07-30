@@ -37,17 +37,15 @@ def test_plugin_initialization_registers_tools_and_page_apis_without_network():
     asyncio.run(plugin.terminate())
 
 
-def test_page_is_disabled_by_default_and_only_returns_minimal_status():
+def test_page_status_and_config_are_always_available():
     plugin = EnvironmentAwarenessPlugin(FakeContext(), AstrBotConfig())
     status = asyncio.run(plugin._page_status())
     assert status["status_code"] == 200
-    assert status["payload"]["page_enabled"] is False
-    assert "usage" not in status["payload"]
-    setup = asyncio.run(plugin._page_setup())
-    assert setup == {
-        "error": "境的管理页面未启用，请先在 AstrBot 插件设置中开启",
-        "status_code": 403,
-    }
+    assert "page_enabled" not in status["payload"]
+    assert "usage" in status["payload"]
+    config = asyncio.run(plugin._page_config())
+    assert config["status_code"] == 200
+    assert config["payload"]["ok"] is True
     asyncio.run(plugin.terminate())
 
 
@@ -59,7 +57,7 @@ def test_page_config_validates_persists_and_applies_values(monkeypatch):
             self.saves += 1
 
     async def scenario():
-        config = SavingConfig({"page_enabled": True})
+        config = SavingConfig()
         plugin = EnvironmentAwarenessPlugin(FakeContext(), config)
 
         async def valid_json(default=None):
@@ -118,7 +116,7 @@ def test_plugin_health_matches_update_manager_contract_without_requiring_locatio
             "tools_registered": True,
         },
         "reasons": [],
-        "version": "0.1.2",
+        "version": "0.1.3",
     }
     asyncio.run(plugin.terminate())
 

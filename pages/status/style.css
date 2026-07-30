@@ -203,18 +203,6 @@ button:disabled {
   margin-top: 22px;
 }
 
-.disabled-section {
-  border: 1px solid #8b6730;
-  background: #1d1a14;
-  padding: 22px;
-}
-
-.disabled-section h2 {
-  max-width: 760px;
-  color: #f2c46d;
-  line-height: 1.5;
-}
-
 .usage-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

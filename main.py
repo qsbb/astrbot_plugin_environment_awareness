@@ -39,7 +39,7 @@ from .core.usage import UsageTracker
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.1.2"
+PLUGIN_VERSION = "0.1.3"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -660,30 +660,7 @@ class EnvironmentAwarenessPlugin(Star):
             "保存境的页面配置",
         )
 
-    def _page_enabled(self) -> bool:
-        return self.service.settings().page_enabled
-
-    def _page_disabled_response(self):
-        if self._page_enabled():
-            return None
-        return error_response(
-            "境的管理页面未启用，请先在 AstrBot 插件设置中开启",
-            status_code=403,
-        )
-
     async def _page_status(self):
-        if not self._page_enabled():
-            return json_response(
-                {
-                    "plugin": {
-                        "name": PLUGIN_NAME,
-                        "display_name": "凝心溯溪-境",
-                        "version": PLUGIN_VERSION,
-                    },
-                    "ready": True,
-                    "page_enabled": False,
-                }
-            )
         return json_response(
             {
                 "plugin": {
@@ -692,7 +669,6 @@ class EnvironmentAwarenessPlugin(Star):
                     "version": PLUGIN_VERSION,
                 },
                 **self._runtime_diagnostics(),
-                "page_enabled": True,
             }
         )
 
@@ -809,9 +785,6 @@ class EnvironmentAwarenessPlugin(Star):
         return value
 
     async def _page_config(self):
-        disabled = self._page_disabled_response()
-        if disabled is not None:
-            return disabled
         return json_response(
             {
                 "ok": True,
@@ -821,9 +794,6 @@ class EnvironmentAwarenessPlugin(Star):
         )
 
     async def _page_save_config(self):
-        disabled = self._page_disabled_response()
-        if disabled is not None:
-            return disabled
         payload = await request.json(default={}) or {}
         if not isinstance(payload, dict):
             return error_response("请求格式错误", status_code=400)
@@ -905,9 +875,6 @@ class EnvironmentAwarenessPlugin(Star):
         self._ensure_background_task()
 
     async def _page_setup(self):
-        disabled = self._page_disabled_response()
-        if disabled is not None:
-            return disabled
         payload = await request.json(default={}) or {}
         if not isinstance(payload, dict):
             return error_response("请求格式错误", status_code=400)
@@ -932,9 +899,6 @@ class EnvironmentAwarenessPlugin(Star):
         )
 
     async def _page_probe(self):
-        disabled = self._page_disabled_response()
-        if disabled is not None:
-            return disabled
         payload = await request.json(default={}) or {}
         if not isinstance(payload, dict):
             return error_response("请求格式错误", status_code=400)

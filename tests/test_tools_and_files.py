@@ -122,10 +122,10 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.1.2" in metadata
-    assert 'PLUGIN_VERSION = "0.1.2"' in main
+    assert "version: 0.1.3" in metadata
+    assert 'PLUGIN_VERSION = "0.1.3"' in main
     assert schema["default_location"]["default"] == ""
-    assert schema["page_enabled"]["default"] is False
+    assert "page_enabled" not in schema
     assert schema["earthquake_max_distance_km"]["default"] == 1200
     assert schema["calendar_awareness_enabled"]["default"] is True
     assert schema["official_weather_warnings_enabled"]["default"] is True
@@ -207,10 +207,10 @@ def test_docs_name_official_sources_and_current_limitations():
     assert "Copyright (c) 2026 qsbb" in license_text
 
 
-def test_docs_explain_page_access_usage_privacy_and_device_location():
+def test_docs_explain_page_usage_privacy_and_device_location():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "管理页默认关闭" in readme
+    assert "管理页常驻可用" in readme
     assert "不记录消息内容、用户 ID、UMO 或查询地点" in readme
     assert "HTTPS 或 `localhost`" in readme
     assert "页面探测不计入真实调用次数" in changelog

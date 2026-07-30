@@ -15,6 +15,158 @@ USGS_FEED_BASE = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary"
 NMC_WARNING_URL = "https://www.nmc.cn/rest/findAlarm"
 
 _COORDINATES = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)\s*$")
+_CJK = re.compile(r"[\u3400-\u9fff]")
+_BARE_CJK_PLACE = re.compile(r"^[\u3400-\u9fff]{2,12}$")
+_ADMIN_SUFFIX = re.compile(
+    r"特别行政区|自治区|自治州|地区|省|市|盟|区|县|旗"
+)
+_ADMIN_SUFFIXES = (
+    "特别行政区",
+    "自治区",
+    "自治州",
+    "地区",
+    "省",
+    "市",
+    "盟",
+    "区",
+    "县",
+    "旗",
+)
+_FEATURE_RANK = {
+    "PPLC": 6,
+    "PPLA": 5,
+    "PPLA2": 4,
+    "PPLA3": 3,
+    "PPLA4": 2,
+    "PPL": 1,
+    "PPLX": 0,
+}
+
+
+def _canonical_place(value: Any) -> str:
+    text = re.sub(r"[\s,，、/\\·]+", "", str(value or "").strip()).casefold()
+    for prefix in ("中华人民共和国", "中国"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+            break
+    for suffix in _ADMIN_SUFFIXES:
+        if text.endswith(suffix) and len(text) > len(suffix) + 1:
+            return text[: -len(suffix)]
+    return text
+
+
+def _admin_components(query: str) -> tuple[str, ...]:
+    compact = re.sub(r"[\s,，、/\\·]+", "", query)
+    for prefix in ("中华人民共和国", "中国"):
+        if compact.startswith(prefix):
+            compact = compact[len(prefix) :]
+            break
+    if not _CJK.search(compact):
+        return ()
+    components: list[str] = []
+    start = 0
+    for match in _ADMIN_SUFFIX.finditer(compact):
+        component = compact[start : match.end()]
+        if component:
+            components.append(component)
+        start = match.end()
+    if start < len(compact):
+        components.append(compact[start:])
+    return tuple(component for component in components if component)
+
+
+def _geocoding_attempts(query: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    attempts: list[tuple[str, tuple[str, ...]]] = []
+
+    def add(value: str, ancestors: tuple[str, ...] = ()) -> None:
+        value = value.strip()
+        if value and all(existing[0] != value for existing in attempts):
+            attempts.append((value, ancestors))
+
+    add(query)
+    components = _admin_components(query)
+    if len(components) > 1:
+        for index in range(len(components) - 1, -1, -1):
+            component = components[index]
+            ancestors = components[:index]
+            add(component, ancestors)
+            canonical = _canonical_place(component)
+            if canonical != component.casefold():
+                add(canonical, ancestors)
+    elif _BARE_CJK_PLACE.fullmatch(query) and not _ADMIN_SUFFIX.search(query):
+        add(f"{query}市")
+    return tuple(attempts)
+
+
+def _text_matches(left: str, right: str) -> bool:
+    left_value = _canonical_place(left)
+    right_value = _canonical_place(right)
+    return bool(
+        len(left_value) >= 2
+        and len(right_value) >= 2
+        and (left_value in right_value or right_value in left_value)
+    )
+
+
+def _ancestor_matches(result: dict[str, Any], ancestors: tuple[str, ...]) -> int:
+    fields = tuple(
+        str(result.get(key) or "")
+        for key in ("name", "admin1", "admin2", "admin3", "admin4", "country")
+    )
+    return sum(
+        any(_text_matches(hint, field) for field in fields)
+        for hint in ancestors
+    )
+
+
+def _best_geocoding_result(
+    results: Any, target: str, ancestors: tuple[str, ...]
+) -> dict[str, Any] | None:
+    usable = [
+        item
+        for item in (results or [])
+        if isinstance(item, dict)
+        and item.get("latitude") is not None
+        and item.get("longitude") is not None
+    ]
+    if ancestors:
+        matched = [item for item in usable if _ancestor_matches(item, ancestors)]
+        if not matched:
+            return None
+        usable = matched
+    target_value = _canonical_place(target)
+
+    def score(item: dict[str, Any]) -> tuple[int, int, int, int]:
+        name = _canonical_place(item.get("name"))
+        exact = int(bool(name) and name == target_value)
+        contains = int(bool(name) and (name in target_value or target_value in name))
+        ancestor_score = _ancestor_matches(item, ancestors)
+        feature_score = _FEATURE_RANK.get(str(item.get("feature_code") or ""), -1)
+        try:
+            population = max(0, int(item.get("population") or 0))
+        except (TypeError, ValueError):
+            population = 0
+        return (
+            ancestor_score,
+            exact * 2 + contains,
+            feature_score,
+            population,
+        )
+
+    return max(usable, key=score, default=None)
+
+
+def _should_retry_as_city(query: str, attempted: str, result: dict[str, Any]) -> bool:
+    if attempted != query or not _BARE_CJK_PLACE.fullmatch(query):
+        return False
+    if _ADMIN_SUFFIX.search(query):
+        return False
+    feature = str(result.get("feature_code") or "")
+    try:
+        population = int(result.get("population") or 0)
+    except (TypeError, ValueError):
+        population = 0
+    return feature in {"PPL", "PPLX"} and population < 100_000
 
 
 class ProviderError(RuntimeError):
@@ -70,20 +222,33 @@ class OpenDataProvider:
                 timezone=timezone,
             )
 
-        data = await self._json(
-            "open-meteo-geocoding",
-            GEOCODING_URL,
-            {
-                "name": query,
-                "count": 5,
-                "language": language,
-                "format": "json",
-            },
-        )
-        results = data.get("results") or []
-        if not results:
+        fallback: dict[str, Any] | None = None
+        best: dict[str, Any] | None = None
+        search_language = "zh" if _CJK.search(query) else language
+        for attempted, ancestors in _geocoding_attempts(query):
+            data = await self._json(
+                "open-meteo-geocoding",
+                GEOCODING_URL,
+                {
+                    "name": attempted,
+                    "count": 10,
+                    "language": search_language,
+                    "format": "json",
+                },
+            )
+            candidate = _best_geocoding_result(
+                data.get("results"), attempted, ancestors
+            )
+            if candidate is None:
+                continue
+            if _should_retry_as_city(query, attempted, candidate):
+                fallback = candidate
+                continue
+            best = candidate
+            break
+        best = best or fallback
+        if best is None:
             raise ValueError(f"没有找到地点：{query}")
-        best = results[0]
         try:
             return Location(
                 query=query,

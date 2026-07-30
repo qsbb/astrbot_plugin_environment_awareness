@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>凝心溯溪-境</title>
-    <link rel="stylesheet" href="./style.css?v=20260730-page-config" />
+    <link rel="stylesheet" href="./style.css?v=20260730-location-fix" />
   </head>
   <body>
     <main class="shell">
@@ -35,12 +35,7 @@
         </div>
       </section>
 
-      <section id="page-disabled" class="disabled-section" hidden>
-        <p class="section-kicker">页面访问已关闭</p>
-        <h2>请先在 AstrBot 插件设置中开启“启用境的管理页面”</h2>
-      </section>
-
-      <section class="setup-section page-managed">
+      <section class="setup-section">
         <div class="section-heading">
           <div>
             <p class="section-kicker">快速设置</p>
@@ -68,7 +63,7 @@
         <p id="setup-result" class="result" role="status"></p>
       </section>
 
-      <section class="usage-section page-managed">
+      <section class="usage-section">
         <div class="section-heading">
           <div>
             <p class="section-kicker">调用统计</p>
@@ -112,7 +107,7 @@
         <p class="privacy-note" id="usage-privacy"></p>
       </section>
 
-      <section class="config-section page-managed">
+      <section class="config-section">
         <div class="section-heading">
           <div>
             <p class="section-kicker">参数管理</p>
@@ -126,7 +121,7 @@
         <p id="config-result" class="result" role="status"></p>
       </section>
 
-      <section class="probe-section page-managed">
+      <section class="probe-section">
         <div class="section-heading">
           <div>
             <p class="section-kicker">实时检查</p>
@@ -171,7 +166,7 @@
         <p id="probe-result" class="result" role="status"></p>
       </section>
 
-      <section class="filter-section page-managed">
+      <section class="filter-section">
         <div class="section-heading">
           <div>
             <p class="section-kicker">过滤边界</p>
@@ -212,6 +207,6 @@
     </main>
 
     <script src="/api/plugin/page/bridge-sdk.js"></script>
-    <script type="module" src="./app.js?v=20260730-page-config"></script>
+    <script type="module" src="./app.js?v=20260730-location-fix"></script>
   </body>
 </html>

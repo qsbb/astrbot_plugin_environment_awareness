@@ -50,6 +50,154 @@ def test_named_location_uses_first_geocoding_match():
     asyncio.run(scenario())
 
 
+def test_full_chinese_admin_location_falls_back_to_city_with_parent_match():
+    async def scenario():
+        seen = []
+
+        def handler(request: httpx.Request):
+            name = request.url.params["name"]
+            seen.append(name)
+            if name == "广东省珠海市":
+                return httpx.Response(200, json={})
+            assert name == "珠海市"
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "name": "珠海市",
+                            "feature_code": "PPLA2",
+                            "latitude": 22.27694,
+                            "longitude": 113.56778,
+                            "timezone": "Asia/Shanghai",
+                            "country": "中国",
+                            "country_code": "CN",
+                            "admin1": "广东",
+                            "admin2": "珠海市",
+                            "population": 2_207_090,
+                        }
+                    ]
+                },
+            )
+
+        async with _client(handler) as client:
+            location = await OpenDataProvider(client).resolve_location("广东省珠海市")
+        assert seen == ["广东省珠海市", "珠海市"]
+        assert location.query == "广东省珠海市"
+        assert location.name == "珠海市"
+        assert location.admin1 == "广东"
+
+    asyncio.run(scenario())
+
+
+def test_bare_chinese_city_retries_low_quality_namesake_with_city_suffix():
+    async def scenario():
+        seen = []
+
+        def handler(request: httpx.Request):
+            name = request.url.params["name"]
+            seen.append(name)
+            if name == "珠海":
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [
+                            {
+                                "name": "珠海",
+                                "feature_code": "PPL",
+                                "latitude": 35.87124,
+                                "longitude": 119.99638,
+                                "timezone": "Asia/Shanghai",
+                                "country_code": "CN",
+                                "admin1": "山东",
+                                "admin2": "青岛市",
+                            }
+                        ]
+                    },
+                )
+            assert name == "珠海市"
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "name": "珠海市",
+                            "feature_code": "PPLA2",
+                            "latitude": 22.27694,
+                            "longitude": 113.56778,
+                            "timezone": "Asia/Shanghai",
+                            "country_code": "CN",
+                            "admin1": "广东",
+                            "admin2": "珠海市",
+                            "population": 2_207_090,
+                        }
+                    ]
+                },
+            )
+
+        async with _client(handler) as client:
+            location = await OpenDataProvider(client).resolve_location("珠海")
+        assert seen == ["珠海", "珠海市"]
+        assert location.admin1 == "广东"
+        assert location.name == "珠海市"
+
+    asyncio.run(scenario())
+
+
+def test_admin_parent_hint_rejects_wrong_namesake_before_safe_fallback():
+    async def scenario():
+        seen = []
+
+        def handler(request: httpx.Request):
+            name = request.url.params["name"]
+            seen.append(name)
+            if name == "北京市朝阳区":
+                return httpx.Response(200, json={})
+            if name in {"朝阳区", "朝阳"}:
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [
+                            {
+                                "name": "朝阳",
+                                "feature_code": "PPLA2",
+                                "latitude": 41.57,
+                                "longitude": 120.45,
+                                "timezone": "Asia/Shanghai",
+                                "country_code": "CN",
+                                "admin1": "辽宁",
+                            }
+                        ]
+                    },
+                )
+            assert name == "北京市"
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "name": "北京市",
+                            "feature_code": "PPLC",
+                            "latitude": 39.9075,
+                            "longitude": 116.39723,
+                            "timezone": "Asia/Shanghai",
+                            "country_code": "CN",
+                            "admin1": "北京市",
+                            "population": 18_960_744,
+                        }
+                    ]
+                },
+            )
+
+        async with _client(handler) as client:
+            location = await OpenDataProvider(client).resolve_location("北京市朝阳区")
+        assert seen == ["北京市朝阳区", "朝阳区", "朝阳", "北京市"]
+        assert location.admin1 == "北京市"
+        assert location.name == "北京市"
+
+    asyncio.run(scenario())
+
+
 def test_coordinates_use_lon_lat_order_and_lookup_timezone():
     async def scenario():
         def handler(request: httpx.Request):
