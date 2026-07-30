@@ -3,210 +3,243 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>凝心溯溪-境</title>
-    <link rel="stylesheet" href="./style.css?v=20260730-location-fix" />
+    <title>凝心溯溪-境 · 环境感知</title>
+    <link rel="stylesheet" href="./style.css?v=0.1.4" />
   </head>
   <body>
     <main class="shell">
-      <header class="topbar">
+      <header class="hero">
         <div>
-          <p class="eyebrow">ASTRBOT PLUGIN PAGE</p>
+          <p class="eyebrow">AstrBot Plugin Page</p>
           <h1>凝心溯溪-境</h1>
+          <p>外部环境感知、风险筛选、调用统计与配置管理</p>
         </div>
-        <button id="refresh" class="secondary" type="button">刷新</button>
+        <div class="toolbar">
+          <button id="refresh" type="button">刷新</button>
+        </div>
       </header>
 
-      <section class="status-band" aria-label="运行状态">
-        <div>
-          <span class="label">运行状态</span>
-          <strong id="runtime-status">读取中</strong>
+      <nav class="tabs" aria-label="环境感知页面分区" role="tablist">
+        <button
+          class="active"
+          type="button"
+          data-tab="overview"
+          role="tab"
+          aria-selected="true"
+        >总览</button>
+        <button
+          type="button"
+          data-tab="config"
+          role="tab"
+          aria-selected="false"
+        >配置</button>
+        <button
+          type="button"
+          data-tab="probe"
+          role="tab"
+          aria-selected="false"
+        >实时检查</button>
+      </nav>
+
+      <section class="panel active" data-panel="overview" role="tabpanel">
+        <div class="cards status-cards" aria-label="运行状态">
+          <article class="metric">
+            <span>运行状态</span>
+            <strong id="runtime-status" class="accent">读取中</strong>
+          </article>
+          <article class="metric">
+            <span>数据源</span>
+            <strong>Open-Meteo · 中央气象台 · USGS</strong>
+          </article>
+          <article class="metric">
+            <span>模式</span>
+            <strong>按需 + 后台候选</strong>
+          </article>
+          <article class="metric">
+            <span>版本</span>
+            <strong id="plugin-version">-</strong>
+          </article>
         </div>
-        <div>
-          <span class="label">数据源</span>
-          <strong>Open-Meteo · 中央气象台 · USGS</strong>
-        </div>
-        <div>
-          <span class="label">模式</span>
-          <strong>按需 + 后台候选</strong>
-        </div>
-        <div>
-          <span class="label">版本</span>
-          <strong id="plugin-version">-</strong>
-        </div>
+
+        <article class="card setup-card">
+          <div class="section-heading">
+            <div>
+              <h2>常驻地点</h2>
+              <p>设置环境查询的默认城市，也可以直接读取当前设备位置。</p>
+            </div>
+            <span id="location-state" class="pill neutral">未设置</span>
+          </div>
+          <form id="setup-form" class="setup-form">
+            <label for="default-location">城市或经度,纬度</label>
+            <div class="input-row">
+              <input
+                id="default-location"
+                name="default_location"
+                type="text"
+                maxlength="100"
+                autocomplete="off"
+                placeholder="例如：广东省珠海市"
+              />
+              <button id="use-device-location" type="button">
+                使用当前设备位置
+              </button>
+              <button id="save" class="primary" type="submit">保存并校验</button>
+            </div>
+          </form>
+          <p id="setup-result" class="result" role="status"></p>
+        </article>
+
+        <article class="card usage-card">
+          <div class="section-heading">
+            <div>
+              <h2>使用概览</h2>
+              <p>统计真实工具、命令、感知与主动交付调用。</p>
+            </div>
+          </div>
+          <div class="usage-summary" aria-label="调用统计摘要">
+            <div>
+              <span>累计调用</span>
+              <strong id="usage-total">0</strong>
+            </div>
+            <div>
+              <span>成功</span>
+              <strong id="usage-success">0</strong>
+            </div>
+            <div>
+              <span>失败</span>
+              <strong id="usage-failed">0</strong>
+            </div>
+            <div>
+              <span>最常用入口</span>
+              <strong id="usage-top-source">-</strong>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>入口</th>
+                  <th>功能</th>
+                  <th>结果</th>
+                  <th>耗时</th>
+                </tr>
+              </thead>
+              <tbody id="usage-recent">
+                <tr><td colspan="5" class="empty-cell">暂无调用记录</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="privacy-note" id="usage-privacy"></p>
+        </article>
+
+        <article class="card filter-card">
+          <div class="section-heading">
+            <div>
+              <h2>当前感知阈值</h2>
+              <p>只展示当前生效的关键过滤边界与主动能力状态。</p>
+            </div>
+          </div>
+          <dl class="filter-list">
+            <div>
+              <dt>最低震级</dt>
+              <dd id="filter-magnitude">-</dd>
+            </div>
+            <div>
+              <dt>绝对最远距离</dt>
+              <dd id="filter-distance">-</dd>
+            </div>
+            <div>
+              <dt>近场半径</dt>
+              <dd id="filter-nearby">-</dd>
+            </div>
+            <div>
+              <dt>重要日轻量感知</dt>
+              <dd id="filter-calendar-awareness">-</dd>
+            </div>
+            <div>
+              <dt>官方预警查询</dt>
+              <dd id="filter-official-warnings">-</dd>
+            </div>
+            <div>
+              <dt>环境关心候选</dt>
+              <dd id="opportunity-cache">-</dd>
+            </div>
+            <div>
+              <dt>主动消息</dt>
+              <dd id="proactive-status">-</dd>
+            </div>
+          </dl>
+        </article>
       </section>
 
-      <section class="setup-section">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">快速设置</p>
-            <h2>常驻地点</h2>
-          </div>
-          <span id="location-state" class="state neutral">未设置</span>
-        </div>
-        <form id="setup-form" class="setup-form">
-          <label for="default-location">城市或经度,纬度</label>
-          <div class="input-row">
-            <input
-              id="default-location"
-              name="default_location"
-              type="text"
-              maxlength="100"
-              autocomplete="off"
-              placeholder="例如：杭州"
-            />
-            <button id="use-device-location" class="secondary" type="button">
-              使用当前设备位置
+      <section class="panel" data-panel="config" role="tabpanel">
+        <article class="card config-card">
+          <div class="section-heading">
+            <div>
+              <h2>插件配置</h2>
+              <p>按功能分组编辑公开参数，保存后立即热应用。</p>
+            </div>
+            <button id="save-config" class="primary" type="submit" form="config-form">
+              保存配置
             </button>
-            <button id="save" type="submit">保存并校验</button>
           </div>
-        </form>
-        <p id="setup-result" class="result" role="status"></p>
+          <form id="config-form" class="config-form">
+            <div id="config-groups"></div>
+          </form>
+          <p id="config-result" class="result" role="status"></p>
+        </article>
       </section>
 
-      <section class="usage-section">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">调用统计</p>
-            <h2>使用概览</h2>
+      <section class="panel" data-panel="probe" role="tabpanel">
+        <article class="card probe-card">
+          <div class="section-heading">
+            <div>
+              <h2>本地感知结果</h2>
+              <p>按当前地点即时检查数据源与相关性过滤结果。</p>
+            </div>
+            <button id="probe" type="button">测试数据源</button>
           </div>
-        </div>
-        <div class="usage-summary" aria-label="调用统计摘要">
-          <div>
-            <span class="label">累计调用</span>
-            <strong id="usage-total">0</strong>
+          <div class="probe-grid">
+            <div>
+              <span>地点</span>
+              <strong id="probe-location">-</strong>
+            </div>
+            <div>
+              <span>当前天气</span>
+              <strong id="probe-weather">-</strong>
+            </div>
+            <div>
+              <span>空气质量 / 紫外线</span>
+              <strong id="probe-air-quality">-</strong>
+            </div>
+            <div>
+              <span>花粉数据</span>
+              <strong id="probe-pollen">-</strong>
+            </div>
+            <div>
+              <span>当地日历</span>
+              <strong id="probe-calendar">-</strong>
+            </div>
+            <div>
+              <span>相关天气信号</span>
+              <strong id="probe-weather-risks">-</strong>
+            </div>
+            <div>
+              <span>官方气象预警</span>
+              <strong id="probe-official-warnings">-</strong>
+            </div>
+            <div>
+              <span>相关地震</span>
+              <strong id="probe-earthquakes">-</strong>
+            </div>
           </div>
-          <div>
-            <span class="label">成功</span>
-            <strong id="usage-success">0</strong>
-          </div>
-          <div>
-            <span class="label">失败</span>
-            <strong id="usage-failed">0</strong>
-          </div>
-          <div>
-            <span class="label">最常用入口</span>
-            <strong id="usage-top-source">-</strong>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>入口</th>
-                <th>功能</th>
-                <th>结果</th>
-                <th>耗时</th>
-              </tr>
-            </thead>
-            <tbody id="usage-recent">
-              <tr><td colspan="5" class="empty-cell">暂无调用记录</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="privacy-note" id="usage-privacy"></p>
-      </section>
-
-      <section class="config-section">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">参数管理</p>
-            <h2>插件配置</h2>
-          </div>
-          <button id="save-config" type="submit" form="config-form">保存配置</button>
-        </div>
-        <form id="config-form" class="config-form">
-          <div id="config-groups"></div>
-        </form>
-        <p id="config-result" class="result" role="status"></p>
-      </section>
-
-      <section class="probe-section">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">实时检查</p>
-            <h2>本地感知结果</h2>
-          </div>
-          <button id="probe" class="secondary" type="button">测试数据源</button>
-        </div>
-        <div class="probe-grid">
-          <div>
-            <span class="label">地点</span>
-            <strong id="probe-location">-</strong>
-          </div>
-          <div>
-            <span class="label">当前天气</span>
-            <strong id="probe-weather">-</strong>
-          </div>
-          <div>
-            <span class="label">空气质量 / 紫外线</span>
-            <strong id="probe-air-quality">-</strong>
-          </div>
-          <div>
-            <span class="label">花粉数据</span>
-            <strong id="probe-pollen">-</strong>
-          </div>
-          <div>
-            <span class="label">当地日历</span>
-            <strong id="probe-calendar">-</strong>
-          </div>
-          <div>
-            <span class="label">相关天气信号</span>
-            <strong id="probe-weather-risks">-</strong>
-          </div>
-          <div>
-            <span class="label">官方气象预警</span>
-            <strong id="probe-official-warnings">-</strong>
-          </div>
-          <div>
-            <span class="label">相关地震</span>
-            <strong id="probe-earthquakes">-</strong>
-          </div>
-        </div>
-        <p id="probe-result" class="result" role="status"></p>
-      </section>
-
-      <section class="filter-section">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">过滤边界</p>
-            <h2>当前感知阈值</h2>
-          </div>
-        </div>
-        <dl class="filter-list">
-          <div>
-            <dt>最低震级</dt>
-            <dd id="filter-magnitude">-</dd>
-          </div>
-          <div>
-            <dt>绝对最远距离</dt>
-            <dd id="filter-distance">-</dd>
-          </div>
-          <div>
-            <dt>近场半径</dt>
-            <dd id="filter-nearby">-</dd>
-          </div>
-          <div>
-            <dt>重要日轻量感知</dt>
-            <dd id="filter-calendar-awareness">-</dd>
-          </div>
-          <div>
-            <dt>官方预警查询</dt>
-            <dd id="filter-official-warnings">-</dd>
-          </div>
-          <div>
-            <dt>环境关心候选</dt>
-            <dd id="opportunity-cache">-</dd>
-          </div>
-          <div>
-            <dt>主动消息</dt>
-            <dd id="proactive-status">-</dd>
-          </div>
-        </dl>
+          <p id="probe-result" class="result" role="status"></p>
+        </article>
       </section>
     </main>
 
     <script src="/api/plugin/page/bridge-sdk.js"></script>
-    <script type="module" src="./app.js?v=20260730-location-fix"></script>
+    <script type="module" src="./app.js?v=0.1.4"></script>
   </body>
 </html>

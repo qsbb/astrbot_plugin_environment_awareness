@@ -39,7 +39,7 @@ from .core.usage import UsageTracker
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.1.3"
+PLUGIN_VERSION = "0.1.4"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",

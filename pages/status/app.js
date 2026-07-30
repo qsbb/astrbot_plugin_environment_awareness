@@ -39,6 +39,21 @@ const elements = {
   proactiveStatus: document.getElementById("proactive-status"),
 };
 
+function activateTab(target) {
+  document.querySelectorAll(".tabs button[data-tab]").forEach((button) => {
+    const active = button.dataset.tab === target;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll(".panel[data-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.panel === target);
+  });
+}
+
+document.querySelectorAll(".tabs button[data-tab]").forEach((button) => {
+  button.addEventListener("click", () => activateTab(button.dataset.tab));
+});
+
 const weatherNames = new Map([
   [0, "晴"], [1, "大致晴朗"], [2, "局部多云"], [3, "阴"],
   [45, "雾"], [48, "雾凇"], [51, "小毛毛雨"], [53, "毛毛雨"],
