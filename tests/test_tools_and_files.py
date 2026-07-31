@@ -122,8 +122,8 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.1.4" in metadata
-    assert 'PLUGIN_VERSION = "0.1.4"' in main
+    assert "version: 0.2.0" in metadata
+    assert 'PLUGIN_VERSION = "0.2.0"' in main
     assert schema["default_location"]["default"] == ""
     assert "page_enabled" not in schema
     assert schema["earthquake_max_distance_km"]["default"] == 1200

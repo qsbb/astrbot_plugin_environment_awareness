@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from astrbot.api import AstrBotConfig, logger
+from astrbot.api import AstrBotConfig
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools, register
 
@@ -36,10 +36,20 @@ from .core.providers import OpenDataProvider
 from .core.service import EnvironmentService
 from .core.settings import EnvironmentSettings
 from .core.usage import UsageTracker
+from .series_diagnostics import (
+    diagnostic_clear as clear_diagnostic_events,
+)
+from .series_diagnostics import (
+    diagnostic_event,
+    logger,
+)
+from .series_diagnostics import (
+    diagnostic_events as read_diagnostic_events,
+)
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.1.4"
+PLUGIN_VERSION = "0.2.0"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -78,6 +88,7 @@ class EnvironmentAwarenessPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
+        diagnostic_event("plugin.init", "环境感知插件开始初始化")
         settings = EnvironmentSettings.from_mapping(config)
         self._http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(settings.request_timeout_seconds),
@@ -124,6 +135,15 @@ class EnvironmentAwarenessPlugin(Star):
             settings.default_location or "未设置",
             "on" if settings.opportunity_cache_enabled else "off",
             "on" if settings.proactive_enabled else "off",
+        )
+        diagnostic_event(
+            "plugin.ready",
+            "环境感知插件初始化完成",
+            details={
+                "tool_count": len(self._tools),
+                "opportunity_cache_enabled": settings.opportunity_cache_enabled,
+                "proactive_enabled": settings.proactive_enabled,
+            },
         )
 
     def record_invocation(
@@ -990,6 +1010,22 @@ class EnvironmentAwarenessPlugin(Star):
             "version": PLUGIN_VERSION,
         }
 
+    def diagnostic_log_contract(self) -> dict[str, object]:
+        return {
+            "name": "series.diagnostics",
+            "version": "1.0",
+            "plugin": PLUGIN_NAME,
+            "capabilities": ("read", "clear"),
+            "storage": "memory_only",
+            "astrbot_log_propagation": False,
+        }
+
+    def diagnostic_events(self, after_seq: int = 0, limit: int = 200) -> dict[str, Any]:
+        return read_diagnostic_events(after_seq=after_seq, limit=limit)
+
+    def diagnostic_clear(self) -> None:
+        clear_diagnostic_events()
+
     def _cleanup_tools(self) -> None:
         unregister = getattr(self.context, "unregister_llm_tool", None)
         if callable(unregister):
@@ -1009,4 +1045,5 @@ class EnvironmentAwarenessPlugin(Star):
         self._cleanup_tools()
         await self._cache.clear()
         await self._http_client.aclose()
+        diagnostic_event("plugin.terminated", "环境感知插件已卸载")
         logger.info("凝心溯溪-境已卸载，缓存、工具和 HTTP 会话已回收")
