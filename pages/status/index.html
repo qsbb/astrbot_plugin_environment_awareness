@@ -4,13 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>凝心溯溪-境 · 环境感知</title>
-    <link rel="stylesheet" href="./style.css?v=0.1.4" />
+    <link rel="stylesheet" href="./style.css?v=0.2.1" />
   </head>
   <body>
+    <p id="bridge-error" class="page-alert error" role="alert" hidden>
+      页面通信组件没有加载，请从 AstrBot 插件详情重新打开本页。
+    </p>
     <main class="shell">
       <header class="hero">
         <div>
-          <p class="eyebrow">AstrBot Plugin Page</p>
+          <p class="eyebrow">AstrBot 插件管理页</p>
           <h1>凝心溯溪-境</h1>
           <p>外部环境感知、风险筛选、调用统计与配置管理</p>
         </div>
@@ -19,29 +22,46 @@
         </div>
       </header>
 
+      <p id="page-notice" class="page-alert error" role="alert" hidden></p>
+
       <nav class="tabs" aria-label="环境感知页面分区" role="tablist">
         <button
+          id="tab-overview"
           class="active"
           type="button"
           data-tab="overview"
           role="tab"
+          aria-controls="panel-overview"
           aria-selected="true"
+          tabindex="0"
         >总览</button>
         <button
+          id="tab-config"
           type="button"
           data-tab="config"
           role="tab"
+          aria-controls="panel-config"
           aria-selected="false"
+          tabindex="-1"
         >配置</button>
         <button
+          id="tab-probe"
           type="button"
           data-tab="probe"
           role="tab"
+          aria-controls="panel-probe"
           aria-selected="false"
+          tabindex="-1"
         >实时检查</button>
       </nav>
 
-      <section class="panel active" data-panel="overview" role="tabpanel">
+      <section
+        id="panel-overview"
+        class="panel active"
+        data-panel="overview"
+        role="tabpanel"
+        aria-labelledby="tab-overview"
+      >
         <div class="cards status-cards" aria-label="运行状态">
           <article class="metric">
             <span>运行状态</span>
@@ -173,7 +193,13 @@
         </article>
       </section>
 
-      <section class="panel" data-panel="config" role="tabpanel">
+      <section
+        id="panel-config"
+        class="panel"
+        data-panel="config"
+        role="tabpanel"
+        aria-labelledby="tab-config"
+      >
         <article class="card config-card">
           <div class="section-heading">
             <div>
@@ -191,7 +217,13 @@
         </article>
       </section>
 
-      <section class="panel" data-panel="probe" role="tabpanel">
+      <section
+        id="panel-probe"
+        class="panel"
+        data-panel="probe"
+        role="tabpanel"
+        aria-labelledby="tab-probe"
+      >
         <article class="card probe-card">
           <div class="section-heading">
             <div>
@@ -240,6 +272,6 @@
     </main>
 
     <script src="/api/plugin/page/bridge-sdk.js"></script>
-    <script type="module" src="./app.js?v=0.1.4"></script>
+    <script type="module" src="./app.js?v=0.2.1"></script>
   </body>
 </html>

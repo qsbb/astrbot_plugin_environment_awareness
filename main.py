@@ -49,7 +49,7 @@ from .series_diagnostics import (
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.2.0"
+PLUGIN_VERSION = "0.2.1"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",

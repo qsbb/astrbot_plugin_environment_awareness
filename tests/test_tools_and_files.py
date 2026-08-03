@@ -122,8 +122,8 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.2.0" in metadata
-    assert 'PLUGIN_VERSION = "0.2.0"' in main
+    assert "version: 0.2.1" in metadata
+    assert 'PLUGIN_VERSION = "0.2.1"' in main
     assert schema["default_location"]["default"] == ""
     assert "page_enabled" not in schema
     assert schema["earthquake_max_distance_km"]["default"] == 1200
@@ -152,7 +152,22 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert 'data-tab="overview"' in html
     assert 'data-tab="config"' in html
     assert 'data-tab="probe"' in html
+    assert 'id="bridge-error"' in html
+    assert 'role="alert"' in html
+    assert 'aria-controls="panel-overview"' in html
+    assert 'aria-controls="panel-config"' in html
+    assert 'aria-controls="panel-probe"' in html
+    assert 'aria-labelledby="tab-overview"' in html
+    assert 'aria-labelledby="tab-config"' in html
+    assert 'aria-labelledby="tab-probe"' in html
+    assert "AstrBot 插件管理页" in html
+    assert 'style.css?v=0.2.1' in html
+    assert 'app.js?v=0.2.1' in html
     assert "activateTab" in app
+    assert 'event.key === "ArrowLeft"' in app
+    assert 'event.key === "ArrowRight"' in app
+    assert 'event.key === "Home"' in app
+    assert 'event.key === "End"' in app
     assert 'bridge.apiPost("setup"' in app
     assert 'bridge.apiPost("probe"' in app
     assert 'bridge.apiPost("config"' in app
@@ -160,6 +175,17 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert "renderUsage" in app
     assert "status.opportunity_cache" in app
     assert "status.proactive_delivery" in app
+
+
+def test_plugin_page_rejects_invalid_numeric_config_without_default_fallback():
+    app = (ROOT / "pages/status/app.js").read_text(encoding="utf-8")
+    assert "function readNumericConfig" in app
+    assert 'input.setAttribute("aria-invalid", "true")' in app
+    assert "需要填写" in app
+    assert "不能小于" in app
+    assert "不能大于" in app
+    assert "dataset.defaultValue" not in app
+    assert "配置读取失败" in app
 
 
 def test_page_config_schema_declares_numeric_boundaries():
@@ -217,4 +243,6 @@ def test_docs_explain_page_usage_privacy_and_device_location():
     assert "管理页常驻可用" in readme
     assert "不记录消息内容、用户 ID、UMO 或查询地点" in readme
     assert "HTTPS 或 `localhost`" in readme
+    assert "配置读取失败会在页面顶部直接提示" in readme
+    assert "不会悄悄改回默认值后继续保存" in readme
     assert "页面探测不计入真实调用次数" in changelog

@@ -1,5 +1,11 @@
 const bridge = window.AstrBotPluginPage;
 
+if (!bridge) {
+  const banner = document.getElementById("bridge-error");
+  if (banner) banner.hidden = false;
+  throw new Error("AstrBot 页面桥接未加载");
+}
+
 const elements = {
   runtimeStatus: document.getElementById("runtime-status"),
   version: document.getElementById("plugin-version"),
@@ -37,21 +43,43 @@ const elements = {
   filterOfficialWarnings: document.getElementById("filter-official-warnings"),
   opportunityCache: document.getElementById("opportunity-cache"),
   proactiveStatus: document.getElementById("proactive-status"),
+  pageNotice: document.getElementById("page-notice"),
 };
 
+const tabButtons = [...document.querySelectorAll('.tabs button[data-tab]')];
+
 function activateTab(target) {
-  document.querySelectorAll(".tabs button[data-tab]").forEach((button) => {
+  tabButtons.forEach((button) => {
     const active = button.dataset.tab === target;
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll(".panel[data-panel]").forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.panel === target);
   });
 }
 
-document.querySelectorAll(".tabs button[data-tab]").forEach((button) => {
+tabButtons.forEach((button, index) => {
   button.addEventListener("click", () => activateTab(button.dataset.tab));
+  button.addEventListener("keydown", (event) => {
+    let targetIndex;
+    if (event.key === "ArrowLeft") {
+      targetIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+    } else if (event.key === "ArrowRight") {
+      targetIndex = (index + 1) % tabButtons.length;
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = tabButtons.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const target = tabButtons[targetIndex];
+    activateTab(target.dataset.tab);
+    target.focus();
+  });
 });
 
 const weatherNames = new Map([
@@ -125,6 +153,15 @@ const statusNames = {
   suppressed: "未发送",
 };
 
+const optionLabels = {
+  low: "低",
+  medium: "中",
+  high: "高",
+  critical: "严重",
+  zh: "中文",
+  en: "英文",
+};
+
 function setBusy(button, busy) {
   button.disabled = busy;
   button.setAttribute("aria-busy", String(busy));
@@ -135,9 +172,14 @@ function setResult(element, message, type = "") {
   element.className = `result ${type}`.trim();
 }
 
+function setPageNotice(message = "") {
+  elements.pageNotice.textContent = message;
+  elements.pageNotice.hidden = !message;
+}
+
 function setLocationState(configured) {
   elements.locationState.textContent = configured ? "已设置" : "未设置";
-  elements.locationState.className = `state ${configured ? "ready" : "neutral"}`;
+  elements.locationState.className = `pill ${configured ? "ready" : "neutral"}`;
 }
 
 function formatTimestamp(value) {
@@ -234,14 +276,17 @@ function renderRuntime(status) {
 
 async function loadStatus() {
   elements.runtimeStatus.textContent = "读取中";
+  elements.runtimeStatus.className = "";
   try {
     const status = await bridge.apiGet("status");
     elements.version.textContent = status.plugin?.version || "-";
     elements.runtimeStatus.textContent = status.ready ? "正常" : "异常";
+    elements.runtimeStatus.className = status.ready ? "accent" : "danger";
     renderRuntime(status);
     return true;
   } catch (error) {
     elements.runtimeStatus.textContent = "连接失败";
+    elements.runtimeStatus.className = "danger";
     setResult(elements.setupResult, error?.message || "无法读取插件状态", "error");
     return false;
   }
@@ -261,7 +306,7 @@ function createConfigField(key, field, value) {
     for (const option of field.options) {
       const item = document.createElement("option");
       item.value = option;
-      item.textContent = option;
+      item.textContent = optionLabels[option] || option;
       input.append(item);
     }
     input.value = value ?? field.default ?? "";
@@ -287,6 +332,8 @@ function createConfigField(key, field, value) {
   input.name = key;
   input.classList.add("config-input");
   input.dataset.kind = field.type || "string";
+  input.dataset.label = field.description || key;
+  input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
 
   if (field.type === "bool") {
     const line = document.createElement("div");
@@ -340,8 +387,41 @@ function renderConfig(schema, config) {
 }
 
 async function loadConfig() {
-  const result = await bridge.apiGet("config");
-  renderConfig(result.schema || {}, result.config || {});
+  try {
+    const result = await bridge.apiGet("config");
+    renderConfig(result.schema || {}, result.config || {});
+    setPageNotice();
+  } catch (error) {
+    const message = error?.message || "无法读取配置";
+    setResult(elements.configResult, message, "error");
+    setPageNotice(`配置读取失败：${message}`);
+    throw error;
+  }
+}
+
+function readNumericConfig(input, integer) {
+  const value = input.value.trim();
+  const parsed = Number(value);
+  const label = `“${input.dataset.label || input.name}”`;
+  if (!value || !Number.isFinite(parsed) || (integer && !Number.isInteger(parsed))) {
+    input.setAttribute("aria-invalid", "true");
+    input.focus();
+    throw new Error(`${label}需要填写${integer ? "整数" : "数字"}`);
+  }
+  const minimum = input.min === "" ? null : Number(input.min);
+  const maximum = input.max === "" ? null : Number(input.max);
+  if (minimum != null && parsed < minimum) {
+    input.setAttribute("aria-invalid", "true");
+    input.focus();
+    throw new Error(`${label}不能小于 ${minimum}`);
+  }
+  if (maximum != null && parsed > maximum) {
+    input.setAttribute("aria-invalid", "true");
+    input.focus();
+    throw new Error(`${label}不能大于 ${maximum}`);
+  }
+  input.removeAttribute("aria-invalid");
+  return parsed;
 }
 
 function collectConfig() {
@@ -350,9 +430,9 @@ function collectConfig() {
     if (input.dataset.kind === "bool") {
       payload[input.name] = input.checked;
     } else if (input.dataset.kind === "int") {
-      payload[input.name] = Number.parseInt(input.value, 10);
+      payload[input.name] = readNumericConfig(input, true);
     } else if (input.dataset.kind === "float") {
-      payload[input.name] = Number.parseFloat(input.value);
+      payload[input.name] = readNumericConfig(input, false);
     } else {
       payload[input.name] = input.value;
     }
@@ -436,8 +516,7 @@ elements.configForm.addEventListener("submit", async (event) => {
       count > 0 ? `已保存 ${count} 项配置` : "配置没有变化",
       "success",
     );
-    await loadStatus();
-    await loadConfig();
+    await Promise.all([loadStatus(), loadConfig()]);
   } catch (error) {
     setResult(elements.configResult, error?.message || "配置保存失败", "error");
   } finally {
@@ -490,12 +569,10 @@ elements.probe.addEventListener("click", async () => {
 });
 
 async function refreshAll() {
-  await loadStatus();
-  try {
-    await loadConfig();
-  } catch (error) {
-    setResult(elements.configResult, error?.message || "无法读取配置", "error");
-  }
+  await Promise.all([
+    loadStatus(),
+    loadConfig().catch(() => false),
+  ]);
 }
 
 elements.refresh.addEventListener("click", async () => {
