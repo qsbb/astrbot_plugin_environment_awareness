@@ -49,7 +49,7 @@ from .series_diagnostics import (
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.2.1"
+PLUGIN_VERSION = "0.2.2"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -1014,8 +1014,10 @@ class EnvironmentAwarenessPlugin(Star):
         return {
             "name": "series.diagnostics",
             "version": "1.0",
-            "plugin": PLUGIN_NAME,
-            "capabilities": ("read", "clear"),
+            "series_id": "ningxin_suxi",
+            "plugin_id": PLUGIN_NAME,
+            "plugin_name": "境",
+            "capabilities": ("read", "clear", "read_events", "clear_events"),
             "storage": "memory_only",
             "astrbot_log_propagation": False,
         }
