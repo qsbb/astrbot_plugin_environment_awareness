@@ -151,6 +151,17 @@ def test_missing_default_location_requires_explicit_location():
     asyncio.run(scenario())
 
 
+def test_weather_without_location_or_default_fails_before_provider_query():
+    async def scenario():
+        provider = FakeProvider()
+        with pytest.raises(ValueError, match="尚未设置常驻地点"):
+            await _service(provider=provider).weather_snapshot()
+        assert provider.calls["resolve"] == 0
+        assert provider.calls["weather"] == 0
+
+    asyncio.run(scenario())
+
+
 def test_explicit_location_works_without_configuration():
     async def scenario():
         snapshot = await _service().datetime_snapshot("杭州")

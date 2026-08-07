@@ -49,7 +49,7 @@ from .series_diagnostics import (
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.2.2"
+PLUGIN_VERSION = "0.2.3"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -836,9 +836,7 @@ class EnvironmentAwarenessPlugin(Star):
             if coerced != current.get(key):
                 changes[key] = coerced
         if errors:
-            detail = "；".join(
-                f"{key}: {value}" for key, value in errors.items()
-            )
+            detail = "；".join(f"{key}: {value}" for key, value in errors.items())
             return error_response(
                 f"配置校验失败：{detail}",
                 status_code=400,

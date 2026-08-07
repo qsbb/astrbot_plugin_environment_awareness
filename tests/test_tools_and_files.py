@@ -82,6 +82,55 @@ def test_tool_descriptions_cover_natural_intents_without_forcing_unrelated_calls
         assert "插件级全局常驻地点" in location_hint
 
 
+def test_weather_tool_treats_direct_temperature_and_rain_questions_as_realtime():
+    weather = next(
+        tool
+        for tool in create_tools(SimpleNamespace(service=FakeService()))
+        if tool.name == "get_weather"
+    )
+    for phrase in (
+        "明确的实时事实请求",
+        "应调用",
+        "当前温度",
+        "最近是否下雨",
+        "你那今天多少度",
+        "你那边最近有下雨吗",
+        "不要求用户正在做出行决定",
+    ):
+        assert phrase in weather.description
+
+
+def test_weather_tool_preserves_non_realtime_weather_non_call_boundaries():
+    weather = next(
+        tool
+        for tool in create_tools(SimpleNamespace(service=FakeService()))
+        if tool.name == "get_weather"
+    )
+    for phrase in ("文学比喻", "虚构场景", "天气回忆", "纯情绪化表达", "心里阴天"):
+        assert phrase in weather.description
+    assert "不按关键词强制调用" in weather.description
+
+
+def test_weather_tool_schema_requires_location_question_when_deictic_place_is_unknown():
+    weather = next(
+        tool
+        for tool in create_tools(SimpleNamespace(service=FakeService()))
+        if tool.name == "get_weather"
+    )
+    location_hint = weather.parameters["properties"]["location"]["description"]
+    for phrase in (
+        "你那",
+        "你那里",
+        "你那边",
+        "有效 default_location",
+        "单用户部署",
+        "多用户部署必须显式提供",
+        "无法确定地点时先自然追问",
+        "不得猜测地点、编造天气",
+    ):
+        assert phrase in location_hint
+
+
 def test_tool_calls_return_structured_json():
     async def scenario():
         calls = []
@@ -122,8 +171,8 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.2.2" in metadata
-    assert 'PLUGIN_VERSION = "0.2.2"' in main
+    assert "version: 0.2.3" in metadata
+    assert 'PLUGIN_VERSION = "0.2.3"' in main
     assert schema["default_location"]["default"] == ""
     assert "page_enabled" not in schema
     assert schema["earthquake_max_distance_km"]["default"] == 1200
@@ -136,6 +185,7 @@ def test_metadata_schema_and_development_version_are_consistent():
     assert schema["proactive_daily_limit"]["default"] == 1
     assert "插件级全局地点" in schema["default_location"]["hint"]
     assert "多用户部署" in schema["default_location"]["hint"]
+    assert "归属不明时先询问" in schema["default_location"]["hint"]
 
 
 def test_plugin_page_has_quick_setup_and_probe_controls():
@@ -161,8 +211,8 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert 'aria-labelledby="tab-config"' in html
     assert 'aria-labelledby="tab-probe"' in html
     assert "AstrBot 插件管理页" in html
-    assert 'style.css?v=0.2.2' in html
-    assert 'app.js?v=0.2.2' in html
+    assert "style.css?v=0.2.3" in html
+    assert "app.js?v=0.2.3" in html
     assert "activateTab" in app
     assert 'event.key === "ArrowLeft"' in app
     assert 'event.key === "ArrowRight"' in app
