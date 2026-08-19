@@ -56,7 +56,9 @@ function activateTab(target) {
     button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll(".panel[data-panel]").forEach((panel) => {
-    panel.classList.toggle("active", panel.dataset.panel === target);
+    const active = panel.dataset.panel === target;
+    panel.classList.toggle("active", active);
+    panel.setAttribute("aria-hidden", String(!active));
   });
 }
 
@@ -575,6 +577,23 @@ async function refreshAll() {
   ]);
 }
 
+async function waitForBridgeReady(timeout = 5000) {
+  let timer;
+  try {
+    await Promise.race([
+      bridge.ready(),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("页面通信初始化超时，请点击刷新重试")),
+          timeout,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 elements.refresh.addEventListener("click", async () => {
   setBusy(elements.refresh, true);
   try {
@@ -584,5 +603,11 @@ elements.refresh.addEventListener("click", async () => {
   }
 });
 
-await bridge.ready();
-await refreshAll();
+async function initialize() {
+  await waitForBridgeReady();
+  await refreshAll();
+}
+
+initialize().catch((error) => {
+  setPageNotice(error?.message || "页面初始化失败", "error");
+});

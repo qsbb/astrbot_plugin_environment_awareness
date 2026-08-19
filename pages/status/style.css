@@ -9,6 +9,7 @@
   --accent: #5dd6c0;
   --warn: #ffb86b;
   --danger: #ff7b72;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 * {
@@ -104,11 +105,8 @@ select {
 button {
   cursor: pointer;
   font-weight: 600;
-}
-
-button:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  transition: color 160ms ease, border-color 160ms ease,
+    background-color 160ms ease, transform 160ms var(--ease-out);
 }
 
 button:focus-visible,
@@ -130,9 +128,12 @@ button.primary {
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: .55;
 }
+
+button[aria-busy="true"] { cursor: wait; }
+button:active:not(:disabled) { transform: scale(.97); }
 
 .tabs {
   display: flex;
@@ -306,10 +307,6 @@ th {
   background: rgba(7, 17, 29, .35);
   font-size: 12px;
   font-weight: 600;
-}
-
-tbody tr:hover {
-  background: rgba(93, 214, 192, .045);
 }
 
 td[data-status="success"] {
@@ -518,8 +515,15 @@ td[data-status="suppressed"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
-    scroll-behavior: auto !important;
-    transition: none !important;
+  html { scroll-behavior: auto !important; }
+  button { transition-duration: .01ms !important; }
+  button:active:not(:disabled) { transform: none; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
   }
+  tbody tr:hover { background: rgba(93, 214, 192, .045); }
 }

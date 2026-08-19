@@ -210,6 +210,8 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert 'aria-labelledby="tab-overview"' in html
     assert 'aria-labelledby="tab-config"' in html
     assert 'aria-labelledby="tab-probe"' in html
+    assert 'aria-hidden="false"' in html
+    assert 'aria-hidden="true"' in html
     assert "AstrBot 插件管理页" in html
     assert "style.css?v=0.2.3" in html
     assert "app.js?v=0.2.3" in html
@@ -225,6 +227,12 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert "renderUsage" in app
     assert "status.opportunity_cache" in app
     assert "status.proactive_delivery" in app
+    assert 'panel.setAttribute("aria-hidden", String(!active))' in app
+    assert "页面通信初始化超时，请点击刷新重试" in app
+    assert "async function waitForBridgeReady" in app
+    assert "clearTimeout(timer)" in app
+    assert "initialize().catch" in app
+    assert 'setPageNotice(error?.message || "页面初始化失败"' in app
 
 
 def test_plugin_page_rejects_invalid_numeric_config_without_default_fallback():
