@@ -49,7 +49,7 @@ from .series_diagnostics import (
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.3.0"
+PLUGIN_VERSION = "0.3.1"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -145,6 +145,41 @@ class EnvironmentAwarenessPlugin(Star):
                 "proactive_enabled": settings.proactive_enabled,
             },
         )
+
+    def series_control_contract(self):
+        from .series_control import contract
+
+        return contract(self)
+
+    def series_control_schema(self):
+        from .series_control import schema
+
+        return schema(self)
+
+    def series_control_snapshot(self):
+        from .series_control import snapshot
+
+        return snapshot(self)
+
+    def validate_series_control_patch(self, patch, *, expected_revision):
+        from .series_control import validate
+
+        return validate(self, patch, expected_revision=expected_revision)
+
+    def apply_series_control_patch(self, patch, *, expected_revision):
+        from .series_control import apply
+
+        return apply(self, patch, expected_revision=expected_revision)
+
+    def reset_series_control_override(self, fields=None, *, expected_revision=None):
+        from .series_control import reset
+
+        return reset(self, fields, expected_revision=expected_revision)
+
+    def series_control_set_mode(self, mode):
+        from .series_control import set_mode
+
+        return set_mode(self, mode)
 
     def record_invocation(
         self,
