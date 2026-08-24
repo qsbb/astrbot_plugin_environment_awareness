@@ -6,3 +6,8 @@ __pycache__/
 htmlcov/
 .venv/
 .runtime/
+
+# 本地备份/临时文件（勿提交）
+*.bak
+*.bak_*
+*.orig
