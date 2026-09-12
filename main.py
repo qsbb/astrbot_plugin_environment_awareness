@@ -50,7 +50,7 @@ from .series_webui import EnvironmentWebUIAdapter
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.4.0"
+PLUGIN_VERSION = "0.5.0"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
