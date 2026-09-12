@@ -1111,7 +1111,7 @@ class EnvironmentAwarenessPlugin(Star):
             "display_name": "境",
             "role": "environment",
             "standalone": {
-                "available": true,
+                "available": True,
                 "entry": "/pages/status",
                 "pages": ["status"],
             },
