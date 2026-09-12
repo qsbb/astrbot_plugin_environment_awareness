@@ -1101,6 +1101,24 @@ class EnvironmentAwarenessPlugin(Star):
             "version": PLUGIN_VERSION,
         }
 
+    def series_module_contract(self) -> dict[str, object]:
+        """series.module@1.0：声明模块身份、独立入口与统一接管能力。"""
+        return {
+            "name": "series.module@1.0",
+            "version": "1.0",
+            "series_id": "ningxin_suxi",
+            "plugin_id": "astrbot_plugin_environment_awareness",
+            "display_name": "境",
+            "role": "environment",
+            "standalone": {
+                "available": true,
+                "entry": "/pages/status",
+                "pages": ["status"],
+            },
+            "capabilities": ["control", "webui", "diagnostics"],
+            "panels": ["status"],
+        }
+
     def diagnostic_log_contract(self) -> dict[str, object]:
         return {
             "name": "series.diagnostics",
