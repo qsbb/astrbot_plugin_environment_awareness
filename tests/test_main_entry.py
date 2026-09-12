@@ -49,6 +49,20 @@ def test_page_status_and_config_are_always_available():
     asyncio.run(plugin.terminate())
 
 
+def test_webui_panel_provides_readonly_status():
+    plugin = EnvironmentAwarenessPlugin(FakeContext(), AstrBotConfig())
+    contract = plugin.webui_panels_contract()
+    assert contract["name"] == "series.webui@1.0"
+    assert contract["panels"][0]["id"] == "status"
+    data = plugin.webui_panel_data("status")
+    assert data["success"] is True
+    assert data["columns"]
+    assert data["rows"]
+    assert data["actions"] == []
+    assert plugin.webui_panel_action("status", "anything", {})["success"] is False
+    asyncio.run(plugin.terminate())
+
+
 def test_page_config_validates_persists_and_applies_values(monkeypatch):
     class SavingConfig(AstrBotConfig):
         saves = 0
@@ -116,7 +130,7 @@ def test_plugin_health_matches_update_manager_contract_without_requiring_locatio
             "tools_registered": True,
         },
         "reasons": [],
-        "version": "0.3.1",
+        "version": "0.3.2",
     }
     asyncio.run(plugin.terminate())
 
