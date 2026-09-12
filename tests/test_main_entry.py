@@ -52,7 +52,7 @@ def test_page_status_and_config_are_always_available():
 def test_webui_panel_provides_readonly_status():
     plugin = EnvironmentAwarenessPlugin(FakeContext(), AstrBotConfig())
     contract = plugin.webui_panels_contract()
-    assert contract["name"] == "series.webui@1.0"
+    assert contract["name"] == "series.webui@2.0"
     assert contract["panels"][0]["id"] == "status"
     data = plugin.webui_panel_data("status")
     assert data["success"] is True
