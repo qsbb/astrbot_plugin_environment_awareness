@@ -59,7 +59,10 @@ def test_webui_panel_provides_readonly_status():
     assert data["columns"]
     assert data["rows"]
     assert data["actions"] == []
-    assert plugin.webui_panel_action("status", "anything", {})["success"] is False
+    assert (
+        asyncio.run(plugin.webui_panel_action("status", "anything", {}))["success"]
+        is False
+    )
     asyncio.run(plugin.terminate())
 
 

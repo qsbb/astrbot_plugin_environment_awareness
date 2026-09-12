@@ -46,6 +46,7 @@ from .series_diagnostics import (
 from .series_diagnostics import (
     diagnostic_events as read_diagnostic_events,
 )
+from .series_webui import EnvironmentWebUIAdapter
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
@@ -103,6 +104,7 @@ class EnvironmentAwarenessPlugin(Star):
         self._cache = AsyncTTLCache()
         self._provider = OpenDataProvider(self._http_client)
         self.service = EnvironmentService(config, self._provider, self._cache)
+        self._series_webui = EnvironmentWebUIAdapter(self)
         self._tools = create_tools(self)
         self._calendar_awareness_seen: set[tuple[str, str]] = set()
         self._opportunity_awareness_seen: set[tuple[str, str]] = set()
@@ -775,63 +777,20 @@ class EnvironmentAwarenessPlugin(Star):
         return diagnostics
 
     def webui_panels_contract(self) -> dict[str, object]:
-        """series.webui@2.0：核统一接管时提供只读环境状态面板。"""
-        return {
-            "name": "series.webui@2.0",
-            "version": "2.0",
-            "capabilities": ["generic_table"],
-            "plugin_id": PLUGIN_NAME,
-            "series_id": "ningxin_suxi",
-            "standalone": {"available": True, "pages": ["status"]},
-            "panels": [
-                {
-                    "id": "status",
-                    "title": "环境状态",
-                    "description": "只读查看地点、缓存与主动关心状态",
-                }
-            ],
-        }
+        """series.webui@2.0：状态、设置与受控连通性测试。"""
+        return self._series_webui.contract()
 
     def webui_panel_data(self, panel: str) -> dict[str, object]:
-        if panel != "status":
-            return {"success": False, "error": "UNKNOWN_PANEL"}
-        diagnostics = self._runtime_diagnostics()
-        settings = self.service.settings()
-        candidate = self.get_cached_opportunity(allow_stale=True)
-        opportunity = diagnostics.get("opportunity_cache")
-        opportunity = opportunity if isinstance(opportunity, dict) else {}
-        rows = [
-            {"item": "默认地点", "value": settings.default_location or "未配置"},
-            {"item": "主动关心", "value": "已启用" if settings.proactive_enabled else "未启用"},
-            {"item": "主动提醒暂停", "value": "是" if settings.proactive_paused else "否"},
-            {
-                "item": "机会缓存",
-                "value": (
-                    f"{candidate.get('kind') or '未知'} · {candidate.get('severity') or '未知'}"
-                    + (" · 已过期" if candidate.get("stale") else "")
-                    if candidate
-                    else "无候选"
-                ),
-            },
-            {
-                "item": "后台刷新",
-                "value": "运行中" if opportunity.get("background_task_running") else "未运行",
-            },
-            {
-                "item": "最近刷新",
-                "value": str(opportunity.get("last_refresh") or "无记录"),
-            },
-        ]
-        return {
-            "success": True,
-            "title": "环境状态",
-            "columns": [{"key": "item", "label": "项目"}, {"key": "value", "label": "状态"}],
-            "rows": rows,
-            "actions": [],
-        }
+        return self._series_webui.panel_data(panel)
 
-    def webui_panel_action(self, panel: str, action: str, payload: dict) -> dict[str, object]:
-        return {"success": False, "error": "UNKNOWN_ACTION"}
+    async def webui_panel_action(
+        self,
+        panel: str,
+        action: str,
+        payload: dict,
+        context: dict | None = None,
+    ) -> dict[str, object]:
+        return await self._series_webui.action(panel, action, payload, context)
 
     @staticmethod
     def _page_schema() -> dict[str, dict[str, Any]]:
@@ -909,8 +868,29 @@ class EnvironmentAwarenessPlugin(Star):
 
     async def _page_save_config(self):
         payload = await request.json(default={}) or {}
+        result = await self._save_config_payload(payload)
+        status = int(result.pop("_status", 200))
+        if not result.get("success"):
+            return error_response(
+                str(result.get("message") or result.get("error") or "配置保存失败"),
+                status_code=status,
+            )
+        body = {key: value for key, value in result.items() if key != "success"}
+        return json_response(body)
+
+    async def _save_config_payload(self, payload: Any) -> dict[str, Any]:
+        """Validate/persist page configuration without depending on HTTP request.
+
+        The standalone page and the managed WebUI action both call this method,
+        so schema validation, persistence and hot-apply remain single-sourced.
+        """
         if not isinstance(payload, dict):
-            return error_response("请求格式错误", status_code=400)
+            return {
+                "success": False,
+                "error": "INVALID_JSON_PAYLOAD",
+                "message": "请求格式错误",
+                "_status": 400,
+            }
         schema = self._page_schema()
         current = self._public_config()
         changes: dict[str, Any] = {}
@@ -931,19 +911,21 @@ class EnvironmentAwarenessPlugin(Star):
                 changes[key] = coerced
         if errors:
             detail = "；".join(f"{key}: {value}" for key, value in errors.items())
-            return error_response(
-                f"配置校验失败：{detail}",
-                status_code=400,
-            )
+            return {
+                "success": False,
+                "error": "VALIDATION_FAILED",
+                "fields": errors,
+                "message": f"配置校验失败：{detail}",
+                "_status": 400,
+            }
         if not changes:
-            return json_response(
-                {
-                    "ok": True,
-                    "config": current,
-                    "changed": [],
-                    "restart_required": False,
-                }
-            )
+            return {
+                "success": True,
+                "ok": True,
+                "config": current,
+                "changed": [],
+                "restart_required": False,
+            }
 
         previous = {key: (key in self.config, self.config.get(key)) for key in changes}
         try:
@@ -957,21 +939,25 @@ class EnvironmentAwarenessPlugin(Star):
                     self.config[key] = value
                 else:
                     self.config.pop(key, None)
-            return error_response(f"配置保存失败：{str(exc)[:160]}", status_code=500)
+            return {
+                "success": False,
+                "error": "CONFIG_PERSIST_FAILED",
+                "message": f"配置保存失败：{str(exc)[:160]}",
+                "_status": 500,
+            }
 
         if "request_timeout_seconds" in changes:
             self._http_client.timeout = httpx.Timeout(
                 self.service.settings().request_timeout_seconds
             )
         await self._restart_background_task(clear_candidate=True)
-        return json_response(
-            {
-                "ok": True,
-                "config": self._public_config(),
-                "changed": sorted(changes),
-                "restart_required": False,
-            }
-        )
+        return {
+            "success": True,
+            "ok": True,
+            "config": self._public_config(),
+            "changed": sorted(changes),
+            "restart_required": False,
+        }
 
     async def _restart_background_task(self, *, clear_candidate: bool) -> None:
         if clear_candidate:

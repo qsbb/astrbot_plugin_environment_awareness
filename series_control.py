@@ -20,7 +20,10 @@ FIELDS = {
 
 
 def _path(plugin):
-    return Path(plugin._usage.path).parent / "series-control.json"
+    usage_path = getattr(plugin._usage, "path", None)
+    if usage_path is None:
+        usage_path = plugin._usage._path
+    return Path(usage_path).parent / "series-control.json"
 
 
 def _load(plugin):
