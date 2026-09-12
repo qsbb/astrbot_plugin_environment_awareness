@@ -130,7 +130,7 @@ def test_plugin_health_matches_update_manager_contract_without_requiring_locatio
             "tools_registered": True,
         },
         "reasons": [],
-        "version": "0.3.2",
+        "version": "0.4.0",
     }
     asyncio.run(plugin.terminate())
 
