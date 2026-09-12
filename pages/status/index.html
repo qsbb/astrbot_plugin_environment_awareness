@@ -4,9 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>凝心溯溪-境 · 环境感知</title>
+    <link rel="stylesheet" href="./series-ui.css" />
     <link rel="stylesheet" href="./style.css?v=0.5.0" />
-  </head>
-  <body>
+</head>
+  <body data-series-ui="1">
     <p id="bridge-error" class="page-alert error" role="alert" hidden>
       页面通信组件没有加载，请从 AstrBot 插件详情重新打开本页。
     </p>
@@ -275,6 +276,7 @@
     </main>
 
     <script src="/api/plugin/page/bridge-sdk.js"></script>
+  <script src="./series-ui.js"></script>
     <script type="module" src="./app.js?v=0.5.0"></script>
   </body>
 </html>
