@@ -48,8 +48,22 @@ const elements = {
 };
 
 const tabButtons = [...document.querySelectorAll('.tabs button[data-tab]')];
+const showUnsavedConfirm = window.SeriesUI.confirm;
 
-function activateTab(target) {
+async function confirmDiscardChanges() {
+  if (!hasUnsavedChanges()) return true;
+  return (await showUnsavedConfirm({
+    title: "未保存的修改",
+    message: "当前页面还有未保存的改动，离开将放弃这些改动。",
+    confirmText: "放弃修改",
+    cancelText: "继续编辑",
+    danger: true,
+  })) === true;
+}
+
+async function activateTab(target) {
+  const current = tabButtons.find((button) => button.classList.contains("active"))?.dataset.tab;
+  if (current && current !== target && !await confirmDiscardChanges()) return false;
   tabButtons.forEach((button) => {
     const active = button.dataset.tab === target;
     button.classList.toggle("active", active);
@@ -61,11 +75,12 @@ function activateTab(target) {
     panel.classList.toggle("active", active);
     panel.setAttribute("aria-hidden", String(!active));
   });
+  return true;
 }
 
 tabButtons.forEach((button, index) => {
   button.addEventListener("click", () => activateTab(button.dataset.tab));
-  button.addEventListener("keydown", (event) => {
+  button.addEventListener("keydown", async (event) => {
     let targetIndex;
     if (event.key === "ArrowLeft") {
       targetIndex = (index - 1 + tabButtons.length) % tabButtons.length;
@@ -80,8 +95,7 @@ tabButtons.forEach((button, index) => {
     }
     event.preventDefault();
     const target = tabButtons[targetIndex];
-    activateTab(target.dataset.tab);
-    target.focus();
+    if (await activateTab(target.dataset.tab)) target.focus();
   });
 });
 
@@ -398,14 +412,8 @@ function configFieldValue(input) {
   return input.dataset.kind === "bool" ? input.checked : input.value;
 }
 
-function updateConfigDirty() {
-  const chip = document.getElementById("config-dirty");
-  if (!chip) return;
-  if (!configSnapshot) {
-    chip.textContent = "没有未保存修改";
-    chip.classList.remove("is-dirty");
-    return;
-  }
+function configDirtyCount() {
+  if (!configSnapshot) return 0;
   let dirty = 0;
   for (const input of elements.configForm.querySelectorAll(".config-input")) {
     const current = configFieldValue(input);
@@ -416,6 +424,17 @@ function updateConfigDirty() {
       dirty += 1;
     }
   }
+  return dirty;
+}
+
+function hasUnsavedChanges() {
+  return configDirtyCount() > 0;
+}
+
+function updateConfigDirty() {
+  const chip = document.getElementById("config-dirty");
+  if (!chip) return;
+  const dirty = configDirtyCount();
   chip.textContent = dirty ? `${dirty} 项待保存` : "没有未保存修改";
   chip.classList.toggle("is-dirty", dirty > 0);
 }
@@ -731,6 +750,7 @@ async function waitForBridgeReady(timeout = 5000) {
 }
 
 elements.refresh.addEventListener("click", async () => {
+  if (!await confirmDiscardChanges()) return;
   setBusy(elements.refresh, true);
   try {
     await refreshAll();
@@ -743,6 +763,12 @@ async function initialize() {
   await waitForBridgeReady();
   await refreshAll();
 }
+
+window.addEventListener("beforeunload", (event) => {
+  if (!hasUnsavedChanges()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 
 initialize().catch((error) => {
   setPageNotice(error?.message || "页面初始化失败", "error");

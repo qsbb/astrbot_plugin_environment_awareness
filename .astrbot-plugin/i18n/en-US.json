@@ -1,0 +1,34 @@
+{
+  "config": {
+    "general": {
+      "language": {
+        "labels": [
+          "Chinese",
+          "English"
+        ]
+      },
+      "opportunity_min_severity": {
+        "labels": [
+          "Low",
+          "Medium",
+          "High",
+          "Critical"
+        ]
+      },
+      "proactive_min_severity": {
+        "labels": [
+          "Low",
+          "Medium",
+          "High",
+          "Critical"
+        ]
+      }
+    }
+  },
+  "pages": {
+    "status": {
+      "title": "Environment Awareness",
+      "description": "Review saved locations and local context, and configure weather and proactive-care policies"
+    }
+  }
+}

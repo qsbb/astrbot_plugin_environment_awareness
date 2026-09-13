@@ -10,6 +10,7 @@
     "description": "地点搜索语言",
     "type": "string",
     "options": ["zh", "en"],
+    "labels": ["中文", "英文"],
     "default": "zh"
   },
   "forecast_days": {
@@ -77,6 +78,7 @@
     "description": "生成关心候选的最低严重度",
     "type": "string",
     "options": ["low", "medium", "high", "critical"],
+    "labels": ["低", "中", "高", "严重"],
     "hint": "默认 medium：通常从黄色及以上官方预警、明显强天气、高 AQI/UV、相关地震或强降温中选一条。蓝色预警等低级信号默认不进入候选。",
     "default": "medium"
   },
@@ -138,6 +140,7 @@
     "description": "主动发送最低严重度",
     "type": "string",
     "options": ["low", "medium", "high", "critical"],
+    "labels": ["低", "中", "高", "严重"],
     "hint": "默认 high，比普通回复候选更严格。",
     "default": "high"
   },
