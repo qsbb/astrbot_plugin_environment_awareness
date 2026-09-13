@@ -39,7 +39,12 @@ def _owner_context(revision, request_id="req-test"):
 def test_contract_declares_status_settings_and_controlled_probes():
     plugin = _plugin()
     contract = plugin.webui_panels_contract()
-    assert [panel["id"] for panel in contract["panels"]] == ["status", "settings"]
+    assert [panel["id"] for panel in contract["panels"]] == [
+        "status",
+        "settings",
+        "probe",
+    ]
+    assert contract["standalone"]["available"] is True
     assert contract["managed"]["level"] == "actions"
     assert {
         "generic_table",
@@ -61,7 +66,132 @@ def test_contract_declares_status_settings_and_controlled_probes():
         assert action["effect"] == "idempotent"
         assert action["min_role"] == "admin"
         assert "timeout_seconds" in action
+    probe = contract["panels"][2]
+    assert probe["title"] == "实时检查"
+    probe_actions = {action["id"]: action for action in probe["actions"]}
+    assert set(probe_actions) == {
+        "probe_weather",
+        "probe_air",
+        "probe_calendar",
+        "probe_all",
+    }
+    assert probe_actions["probe_all"]["min_role"] == "admin"
+    assert probe_actions["probe_all"]["timeout_seconds"] == 30
     asyncio.run(plugin.terminate())
+
+
+def test_status_panel_reports_runtime_filters_and_usage_summary():
+    plugin = _plugin()
+    data = plugin.webui_panel_data("status")
+    assert data["success"] is True
+    assert data["actions"] == []
+    rows = {row["item"]: row["value"] for row in data["rows"]}
+    for label in (
+        "运行状态",
+        "版本",
+        "数据源",
+        "模式",
+        "最低震级",
+        "绝对最远距离",
+        "近场半径",
+        "重要日轻量感知",
+        "官方预警查询",
+        "主动消息状态",
+        "关心对象",
+        "累计调用",
+        "调用成功",
+        "调用失败",
+        "最常用入口",
+        "最近调用",
+    ):
+        assert label in rows
+    assert rows["运行状态"] == "正常"
+    assert rows["版本"] == "0.6.3"
+    assert str(rows["数据源"]).startswith("Open-Meteo")
+    assert all(
+        isinstance(value, (str, int, float, bool)) for value in rows.values()
+    )
+    asyncio.run(plugin.terminate())
+
+
+def test_probe_panel_uses_shared_probe_and_renders_scalar_rows(monkeypatch):
+    async def scenario():
+        plugin = _plugin()
+
+        async def fake_probe(location):
+            assert location == "杭州"
+            return {
+                "ok": True,
+                "location": {"name": "杭州"},
+                "component_errors": {"air_quality": "boom"},
+                "weather": {
+                    "temperature": 25.5,
+                    "weather_code": 1,
+                    "observed_at": "2026-09-12T10:00:00+08:00",
+                    "stale": False,
+                },
+                "air_quality": {
+                    "european_aqi": 30,
+                    "uv_index": 5,
+                    "pollen_available": True,
+                },
+                "calendar": {
+                    "date": "2026-09-12",
+                    "day_type": "working_day",
+                    "holiday_name": "",
+                },
+                "alerts": {
+                    "status": "ok",
+                    "weather_signal_count": 2,
+                    "earthquake_count": 1,
+                    "official_warning_count": 0,
+                    "official_warning_status": "ok",
+                    "provider_errors": {"open_meteo": "timeout"},
+                },
+            }
+
+        monkeypatch.setattr(plugin, "environment_probe", fake_probe)
+
+        result = await plugin.webui_panel_action(
+            "probe", "probe_all", {"location": "杭州"}
+        )
+        assert result["success"] is True
+
+        data = plugin.webui_panel_data("probe")
+        assert data["success"] is True
+        assert data["title"] == "实时检查"
+        rows = {row["item"]: row["value"] for row in data["rows"]}
+        assert rows["地点"] == "杭州"
+        assert rows["天气"] == "25.5°C · 天气代码 1"
+        assert rows["空气质量 / 紫外线"] == "空气质量指数 30 · 紫外线指数 5"
+        assert rows["花粉数据"] == "可用"
+        assert rows["当地日历"] == "工作日"
+        assert rows["相关天气信号"] == 2
+        assert rows["官方气象预警"] == "0"
+        assert rows["相关地震"] == 1
+        assert rows["组件错误数"] == 1
+        assert rows["数据源错误数"] == 1
+        assert (
+            rows["失败明细 · 空气质量"]
+            == "boom（影响：空气质量与紫外线不可用）"
+        )
+        assert rows["预警源失败 · open_meteo"] == "timeout"
+        assert all(
+            isinstance(value, (str, int, float, bool)) for value in rows.values()
+        )
+        assert {action["id"] for action in data["actions"]} == {
+            "probe_weather",
+            "probe_air",
+            "probe_calendar",
+            "probe_all",
+        }
+        limited = await plugin.webui_panel_action(
+            "probe", "probe_all", {"location": "杭州"}
+        )
+        assert limited["error"] == "RATE_LIMITED"
+        await plugin.terminate()
+
+    asyncio.run(scenario())
 
 
 def test_settings_data_redacts_secret_fields_and_never_returns_them(monkeypatch):
@@ -220,6 +350,101 @@ def test_set_default_location_uses_shared_resolution_service(monkeypatch):
     asyncio.run(scenario())
 
 
+def test_probe_all_aggregates_service_snapshots_into_rows(monkeypatch):
+    async def scenario():
+        plugin = _plugin()
+
+        async def weather(location, forecast_range, days):
+            assert (location, forecast_range, days) == ("", "current", 1)
+            return {
+                "location": {"name": "珠海"},
+                "observed_at": "2026-09-12T10:00:00+08:00",
+                "stale": False,
+                "payload": {
+                    "current": {"temperature_2m": 27.0, "weather_code": 0}
+                },
+            }
+
+        async def air(location, days):
+            assert (location, days) == ("", 0)
+            return {
+                "location": {"name": "珠海"},
+                "availability": {"pollen": False},
+                "payload": {"current": {"european_aqi": 22, "uv_index": 3}},
+            }
+
+        async def calendar(location, date_text):
+            assert (location, date_text) == ("", "")
+            return {
+                "location": {"name": "珠海"},
+                "date": "2026-09-12",
+                "day_type": "weekend",
+                "holiday_name": "",
+            }
+
+        async def alerts(location, hours):
+            assert (location, hours) == ("", 24)
+            return {
+                "status": "ok",
+                "weather_risk_signals": [],
+                "earthquakes": [{"magnitude": 3.1}],
+                "official_weather_warnings": [],
+                "official_warning_status": "ok",
+                "provider_errors": {},
+            }
+
+        monkeypatch.setattr(plugin.service, "weather_snapshot", weather)
+        monkeypatch.setattr(plugin.service, "air_quality_snapshot", air)
+        monkeypatch.setattr(plugin.service, "calendar_snapshot", calendar)
+        monkeypatch.setattr(plugin.service, "alerts_snapshot", alerts)
+
+        result = await plugin.webui_panel_action(
+            "probe", "probe_all", {"location": ""}
+        )
+        assert result["success"] is True
+
+        rows = {
+            row["item"]: row["value"]
+            for row in plugin.webui_panel_data("probe")["rows"]
+        }
+        assert rows["地点"] == "珠海"
+        assert rows["天气"] == "27.0°C · 天气代码 0"
+        assert rows["空气质量 / 紫外线"] == "空气质量指数 22 · 紫外线指数 3"
+        assert rows["花粉数据"] == "当前地区无数据"
+        assert rows["当地日历"] == "周末"
+        assert rows["相关天气信号"] == 0
+        assert rows["官方气象预警"] == "0"
+        assert rows["相关地震"] == 1
+        assert rows["组件错误数"] == 0
+        assert rows["数据源错误数"] == 0
+        assert not [key for key in rows if str(key).startswith("失败明细")], (
+            "全部数据源正常时不应产生失败明细行"
+        )
+        await plugin.terminate()
+
+    asyncio.run(scenario())
+
+
+def test_probe_failure_reason_sanitizer_strips_credentials_and_truncates():
+    from series_webui import _sanitize_probe_reason
+
+    assert (
+        _sanitize_probe_reason("https://provider.invalid/?token=secret")
+        == "https://provider.invalid/"
+    )
+    scrubbed = _sanitize_probe_reason(
+        "connect failed token=abc123 api_key:xyz password = hunter2"
+    )
+    for leaked in ("abc123", "xyz", "hunter2"):
+        assert leaked not in scrubbed
+    assert "<已隐藏>" in scrubbed
+
+    long_text = _sanitize_probe_reason("x" * 500)
+    assert len(long_text) <= 120
+    assert long_text.endswith("…")
+    assert _sanitize_probe_reason("") == "未知原因"
+
+
 def test_probe_actions_are_bounded_sanitized_and_rate_limited(monkeypatch):
     async def scenario():
         plugin = _plugin()
@@ -257,6 +482,13 @@ def test_probe_actions_are_bounded_sanitized_and_rate_limited(monkeypatch):
         assert weather_result["result"]["temperature"] == 25.5
         assert "provider.invalid" not in json.dumps(weather_result)
 
+        weather_rows = {
+            row["item"]: row["value"]
+            for row in plugin.webui_panel_data("probe")["rows"]
+        }
+        assert weather_rows["地点"] == "杭州"
+        assert "25.5" in str(weather_rows["天气"])
+
         limited = await plugin.webui_panel_action(
             "settings", "probe_weather", {"location": ""}
         )
@@ -267,6 +499,12 @@ def test_probe_actions_are_bounded_sanitized_and_rate_limited(monkeypatch):
         )
         assert failed == {"success": False, "error": "PROBE_FAILED", "probe": "air"}
         assert "secret" not in json.dumps(failed)
+        panel_payload = plugin.webui_panel_data("probe")
+        assert "secret" not in json.dumps(panel_payload)
+        failed_rows = {row["item"]: row["value"] for row in panel_payload["rows"]}
+        assert failed_rows["组件错误数"] == 1
+        detail = str(failed_rows.get("失败明细 · 空气质量") or "")
+        assert detail == "本次探测失败（影响：空气质量与紫外线不可用）"
 
         calendar_result = await plugin.webui_panel_action(
             "settings",

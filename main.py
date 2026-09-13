@@ -50,7 +50,7 @@ from .series_webui import EnvironmentWebUIAdapter
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.6.2"
+PLUGIN_VERSION = "0.6.3"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -996,11 +996,8 @@ class EnvironmentAwarenessPlugin(Star):
             }
         )
 
-    async def _page_probe(self):
-        payload = await request.json(default={}) or {}
-        if not isinstance(payload, dict):
-            return error_response("请求格式错误", status_code=400)
-        location = str(payload.get("location") or "").strip()
+    async def environment_probe(self, location: str) -> dict[str, Any]:
+        """聚合天气/空气/日历/预警快照，供独立 Page 与核面板共用。"""
         names = ("weather", "air_quality", "calendar", "alerts")
         results = await asyncio.gather(
             self.service.weather_snapshot(location, "current", 1),
@@ -1015,65 +1012,71 @@ class EnvironmentAwarenessPlugin(Star):
             if isinstance(result, Exception)
         }
         successful = [result for result in results if isinstance(result, dict)]
-        if not successful:
-            return error_response("数据源测试失败：所有组件均不可用", status_code=502)
         weather = results[0] if isinstance(results[0], dict) else {}
         air_quality = results[1] if isinstance(results[1], dict) else {}
         calendar = results[2] if isinstance(results[2], dict) else {}
         alerts = results[3] if isinstance(results[3], dict) else {}
         current = weather.get("payload", {}).get("current", {})
-        return json_response(
-            {
-                "ok": True,
-                "location": next(
-                    (
-                        item.get("location", {})
-                        for item in successful
-                        if item.get("location")
-                    ),
-                    {},
+        return {
+            "ok": bool(successful),
+            "location": next(
+                (
+                    item.get("location", {})
+                    for item in successful
+                    if item.get("location")
                 ),
-                "component_errors": component_errors,
-                "weather": {
-                    "temperature": current.get("temperature_2m"),
-                    "weather_code": current.get("weather_code"),
-                    "observed_at": weather.get("observed_at"),
-                    "stale": weather.get("stale", False),
-                },
-                "air_quality": {
-                    "european_aqi": (
-                        air_quality.get("payload", {})
-                        .get("current", {})
-                        .get("european_aqi")
-                    ),
-                    "uv_index": (
-                        air_quality.get("payload", {})
-                        .get("current", {})
-                        .get("uv_index")
-                    ),
-                    "pollen_available": air_quality.get("availability", {}).get(
-                        "pollen", False
-                    ),
-                },
-                "calendar": {
-                    "date": calendar.get("date"),
-                    "day_type": calendar.get("day_type"),
-                    "holiday_name": calendar.get("holiday_name"),
-                },
-                "alerts": {
-                    "status": alerts.get("status"),
-                    "weather_signal_count": len(
-                        alerts.get("weather_risk_signals") or []
-                    ),
-                    "earthquake_count": len(alerts.get("earthquakes") or []),
-                    "official_warning_count": len(
-                        alerts.get("official_weather_warnings") or []
-                    ),
-                    "official_warning_status": alerts.get("official_warning_status"),
-                    "provider_errors": alerts.get("provider_errors") or {},
-                },
-            }
-        )
+                {},
+            ),
+            "component_errors": component_errors,
+            "weather": {
+                "temperature": current.get("temperature_2m"),
+                "weather_code": current.get("weather_code"),
+                "observed_at": weather.get("observed_at"),
+                "stale": weather.get("stale", False),
+            },
+            "air_quality": {
+                "european_aqi": (
+                    air_quality.get("payload", {})
+                    .get("current", {})
+                    .get("european_aqi")
+                ),
+                "uv_index": (
+                    air_quality.get("payload", {})
+                    .get("current", {})
+                    .get("uv_index")
+                ),
+                "pollen_available": air_quality.get("availability", {}).get(
+                    "pollen", False
+                ),
+            },
+            "calendar": {
+                "date": calendar.get("date"),
+                "day_type": calendar.get("day_type"),
+                "holiday_name": calendar.get("holiday_name"),
+            },
+            "alerts": {
+                "status": alerts.get("status"),
+                "weather_signal_count": len(
+                    alerts.get("weather_risk_signals") or []
+                ),
+                "earthquake_count": len(alerts.get("earthquakes") or []),
+                "official_warning_count": len(
+                    alerts.get("official_weather_warnings") or []
+                ),
+                "official_warning_status": alerts.get("official_warning_status"),
+                "provider_errors": alerts.get("provider_errors") or {},
+            },
+        }
+
+    async def _page_probe(self):
+        payload = await request.json(default={}) or {}
+        if not isinstance(payload, dict):
+            return error_response("请求格式错误", status_code=400)
+        location = str(payload.get("location") or "").strip()
+        result = await self.environment_probe(location)
+        if not result.get("ok"):
+            return error_response("数据源测试失败：所有组件均不可用", status_code=502)
+        return json_response(result)
 
     def plugin_health(self) -> dict[str, object]:
         checks = {

@@ -121,6 +121,53 @@ def test_page_config_validates_persists_and_applies_values(monkeypatch):
     asyncio.run(scenario())
 
 
+def test_page_probe_reuses_shared_environment_probe(monkeypatch):
+    plugin = EnvironmentAwarenessPlugin(FakeContext(), AstrBotConfig())
+
+    async def fake_probe(location):
+        assert location == "杭州"
+        return {
+            "ok": True,
+            "location": {"name": "杭州"},
+            "component_errors": {},
+            "weather": {"temperature": 25.5},
+            "air_quality": {},
+            "calendar": {},
+            "alerts": {},
+        }
+
+    async def fake_json(default=None):
+        del default
+        return {"location": "杭州"}
+
+    monkeypatch.setattr(plugin, "environment_probe", fake_probe)
+    monkeypatch.setattr(main_module, "request", SimpleNamespace(json=fake_json))
+    response = asyncio.run(plugin._page_probe())
+    assert response["status_code"] == 200
+    assert response["payload"]["ok"] is True
+    assert response["payload"]["weather"]["temperature"] == 25.5
+    asyncio.run(plugin.terminate())
+
+
+def test_page_probe_reports_502_when_all_components_fail(monkeypatch):
+    plugin = EnvironmentAwarenessPlugin(FakeContext(), AstrBotConfig())
+
+    async def fake_probe(location):
+        del location
+        return {"ok": False, "component_errors": {"weather": "boom"}}
+
+    async def fake_json(default=None):
+        del default
+        return {}
+
+    monkeypatch.setattr(plugin, "environment_probe", fake_probe)
+    monkeypatch.setattr(main_module, "request", SimpleNamespace(json=fake_json))
+    response = asyncio.run(plugin._page_probe())
+    assert response["status_code"] == 502
+    assert "所有组件均不可用" in response["error"]
+    asyncio.run(plugin.terminate())
+
+
 def test_plugin_health_matches_update_manager_contract_without_requiring_location():
     context = FakeContext()
     plugin = EnvironmentAwarenessPlugin(context, AstrBotConfig())
@@ -133,7 +180,7 @@ def test_plugin_health_matches_update_manager_contract_without_requiring_locatio
             "tools_registered": True,
         },
         "reasons": [],
-        "version": "0.6.2",
+        "version": "0.6.3",
     }
     asyncio.run(plugin.terminate())
 
