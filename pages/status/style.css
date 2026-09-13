@@ -267,3 +267,11 @@ body[data-series-ui] .filter-list dd {
     grid-template-columns: 1fr;
   }
 }
+
+/* 操作按钮不拆字，保证短文案保持单行。 */
+body[data-series-ui] #use-device-location,
+body[data-series-ui] #save {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  word-break: keep-all;
+}
