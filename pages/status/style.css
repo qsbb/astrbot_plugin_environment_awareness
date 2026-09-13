@@ -262,7 +262,10 @@ body[data-series-ui] .filter-list dd {
 
   body[data-series-ui] .cards,
   body[data-series-ui] .usage-summary,
-  body[data-series-ui] .probe-grid,
+  body[data-series-ui] .probe-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   body[data-series-ui] .filter-list {
     grid-template-columns: 1fr;
   }

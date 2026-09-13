@@ -36,6 +36,7 @@ const elements = {
   probeWeatherRisks: document.getElementById("probe-weather-risks"),
   probeOfficialWarnings: document.getElementById("probe-official-warnings"),
   probeEarthquakes: document.getElementById("probe-earthquakes"),
+  probeDetails: document.getElementById("probe-details"),
   filterMagnitude: document.getElementById("filter-magnitude"),
   filterDistance: document.getElementById("filter-distance"),
   filterNearby: document.getElementById("filter-nearby"),
@@ -526,6 +527,46 @@ elements.configForm.addEventListener("submit", async (event) => {
   }
 });
 
+function renderProbeDetails(result) {
+  const host = elements.probeDetails;
+  if (!host) return;
+  host.replaceChildren();
+  const items = [];
+  const providerErrors = result?.alerts?.provider_errors || {};
+  Object.entries(providerErrors).forEach(([source, reason]) => {
+    items.push({ title: `数据源：${source}`, body: String(reason || "查询失败") });
+  });
+  Object.entries(result?.component_errors || {}).forEach(([source, reason]) => {
+    items.push({ title: `组件：${source}`, body: String(reason || "运行异常") });
+  });
+  const officialStatus = result?.alerts?.official_warning_status;
+  if (officialStatus === "unavailable") {
+    items.push({ title: "官方气象预警", body: "数据源当前不可用，可稍后重试。" });
+  } else if (officialStatus === "unsupported_region") {
+    items.push({ title: "官方气象预警", body: "当前地区不支持官方预警接口。" });
+  }
+  if (!items.length) {
+    const ok = document.createElement("p");
+    ok.className = "field-hint";
+    ok.textContent = "数据源与相关性过滤正常。";
+    host.appendChild(ok);
+    return;
+  }
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    const title = document.createElement("strong");
+    const body = document.createElement("span");
+    title.textContent = item.title;
+    body.textContent = item.body;
+    row.append(title, body);
+    host.appendChild(row);
+  });
+  const retry = document.createElement("p");
+  retry.className = "field-hint";
+  retry.textContent = "点击“测试数据源”可重试失败的数据源。";
+  host.appendChild(retry);
+}
+
 elements.probe.addEventListener("click", async () => {
   setBusy(elements.probe, true);
   setResult(elements.probeResult, "正在查询当地日历、天气、空气与相关事件…");
@@ -558,6 +599,7 @@ elements.probe.addEventListener("click", async () => {
     elements.probeEarthquakes.textContent = String(result.alerts?.earthquake_count ?? 0);
     const partial = Object.keys(result.alerts?.provider_errors || {}).length > 0
       || Object.keys(result.component_errors || {}).length > 0;
+    renderProbeDetails(result);
     setResult(
       elements.probeResult,
       partial ? "已完成，部分数据源暂不可用" : "数据源与相关性过滤正常",
