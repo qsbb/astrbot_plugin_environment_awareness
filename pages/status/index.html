@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>凝心溯溪-境 · 环境感知</title>
-    <link rel="stylesheet" href="./style.css?v=0.6.1" />
-    <link rel="stylesheet" href="./series-ui.css" />
+    <link rel="stylesheet" href="./style.css?v=0.6.1-2" />
+    <link rel="stylesheet" href="./series-ui.css?v=0.6.1-2" />
     </head>
   <body data-series-ui="1">
     <p id="bridge-error" class="page-alert error" role="alert" hidden>
@@ -209,9 +209,12 @@
               <h2>插件配置</h2>
               <p>按功能分组编辑公开参数，保存后立即热应用。</p>
             </div>
-            <button id="save-config" class="primary" type="submit" form="config-form">
-              保存配置
-            </button>
+            <div class="config-save-actions">
+              <span id="config-dirty" class="config-dirty" role="status" aria-live="polite">没有未保存修改</span>
+              <button id="save-config" class="primary" type="submit" form="config-form">
+                保存配置
+              </button>
+            </div>
           </div>
           <form id="config-form" class="config-form">
             <div id="config-groups"></div>
@@ -277,7 +280,7 @@
     </main>
 
     <script src="/api/plugin/page/bridge-sdk.js"></script>
-  <script src="./series-ui.js"></script>
-    <script type="module" src="./app.js?v=0.6.1"></script>
+  <script src="./series-ui.js?v=0.6.1-2"></script>
+    <script type="module" src="./app.js?v=0.6.1-2"></script>
   </body>
 </html>

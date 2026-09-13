@@ -143,6 +143,34 @@ const configGroups = [
   },
 ];
 
+// 会影响对外行为或数据新鲜度的开关：在字段下方直接说明后果，避免只看到“开/关”。
+const consequenceNotes = {
+  calendar_awareness_enabled: {
+    level: "warn",
+    text: "关闭后不再感知节假日与调休，环境关心里的“今天/明天是否特殊”会缺失。",
+  },
+  official_weather_warnings_enabled: {
+    level: "warn",
+    text: "关闭后不再查询中央气象台官方预警，风险事件只来自本地强天气模型与地震数据。",
+  },
+  opportunity_cache_enabled: {
+    level: "warn",
+    text: "关闭后后台不再刷新关心候选；命令与 LLM 工具仍可临时查询，但不会积累候选。",
+  },
+  proactive_enabled: {
+    level: "danger",
+    text: "开启后会按下方严重度与安静时段，向关心对象真实发送环境关心消息；关闭只记录不发送。",
+  },
+  proactive_paused: {
+    level: "danger",
+    text: "勾选后立即暂停主动发送（保留候选与记录）；取消勾选不会补发暂停期间的消息。",
+  },
+  weather_risk_enabled: {
+    level: "warn",
+    text: "关闭后不再标记本地强天气风险，只剩阈值类判断（地震、空气质量等）。",
+  },
+};
+
 const sourceNames = {
   command: "手动命令",
   llm_tool: "LLM 工具",
@@ -352,7 +380,43 @@ function createConfigField(key, field, value) {
     hint.textContent = field.hint;
     wrapper.append(hint);
   }
+  const note = consequenceNotes[key];
+  if (note) {
+    const node = document.createElement("p");
+    node.className = `consequence-note is-${note.level}`;
+    node.setAttribute("role", "note");
+    node.textContent = note.text;
+    wrapper.append(node);
+  }
   return wrapper;
+}
+
+let configSnapshot = null;
+
+function configFieldValue(input) {
+  return input.dataset.kind === "bool" ? input.checked : input.value;
+}
+
+function updateConfigDirty() {
+  const chip = document.getElementById("config-dirty");
+  if (!chip) return;
+  if (!configSnapshot) {
+    chip.textContent = "没有未保存修改";
+    chip.classList.remove("is-dirty");
+    return;
+  }
+  let dirty = 0;
+  for (const input of elements.configForm.querySelectorAll(".config-input")) {
+    const current = configFieldValue(input);
+    const original = configSnapshot[input.name];
+    if (input.dataset.kind === "bool") {
+      if (Boolean(current) !== Boolean(original)) dirty += 1;
+    } else if (String(current) !== String(original ?? "")) {
+      dirty += 1;
+    }
+  }
+  chip.textContent = dirty ? `${dirty} 项待保存` : "没有未保存修改";
+  chip.classList.toggle("is-dirty", dirty > 0);
 }
 
 function renderConfig(schema, config) {
@@ -387,6 +451,11 @@ function renderConfig(schema, config) {
     details.append(summary, grid);
     elements.configGroups.append(details);
   }
+  configSnapshot = {};
+  for (const input of elements.configForm.querySelectorAll(".config-input")) {
+    configSnapshot[input.name] = configFieldValue(input);
+  }
+  updateConfigDirty();
 }
 
 async function loadConfig() {
@@ -506,6 +575,9 @@ elements.locate.addEventListener("click", async () => {
     setBusy(elements.locate, false);
   }
 });
+
+elements.configForm.addEventListener("input", updateConfigDirty);
+elements.configForm.addEventListener("change", updateConfigDirty);
 
 elements.configForm.addEventListener("submit", async (event) => {
   event.preventDefault();

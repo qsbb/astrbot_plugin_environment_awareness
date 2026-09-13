@@ -278,3 +278,60 @@ body[data-series-ui] #save {
   white-space: nowrap;
   word-break: keep-all;
 }
+
+/* 配置保存：sticky 头 + 未保存计数，长表单里始终能看到保存入口 */
+body[data-series-ui] .config-card > .section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--si-line);
+  background: rgba(255, 255, 255, .95);
+}
+
+body[data-series-ui] .config-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+body[data-series-ui] .config-dirty {
+  padding: 6px 11px;
+  border: 1px solid var(--si-line);
+  border-radius: 999px;
+  color: var(--si-muted);
+  background: var(--si-surface-soft);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body[data-series-ui] .config-dirty.is-dirty {
+  color: var(--si-primary-strong);
+  border-color: rgba(102, 92, 246, .35);
+  background: var(--si-primary-soft);
+}
+
+/* 危险/影响较大的开关：在字段下方直接说明后果 */
+body[data-series-ui] .consequence-note {
+  margin: 7px 0 0;
+  padding: 8px 11px;
+  border-left: 3px solid var(--si-warning);
+  border-radius: 8px;
+  color: var(--si-warning);
+  background: var(--si-warning-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+body[data-series-ui] .consequence-note.is-danger {
+  border-left-color: var(--si-danger);
+  color: var(--si-danger);
+  background: var(--si-danger-soft);
+}
+
+@media (max-width: 760px) {
+  body[data-series-ui] .config-save-actions { width: 100%; }
+  body[data-series-ui] .config-save-actions button { flex: 1 1 auto; }
+}
