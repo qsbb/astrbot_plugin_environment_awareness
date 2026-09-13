@@ -304,3 +304,11 @@ def test_docs_explain_page_usage_privacy_and_device_location():
     assert "配置读取失败会在页面顶部直接提示" in readme
     assert "不会悄悄改回默认值后继续保存" in readme
     assert "页面探测不计入真实调用次数" in changelog
+
+
+def test_status_page_uses_compact_action_labels():
+    html = (ROOT / "pages/status/index.html").read_text(encoding="utf-8")
+    assert "使用当前位置" in html
+    assert "保存校验" in html
+    assert "使用当前设备位置" not in html
+    assert "保存并校验" not in html
