@@ -197,9 +197,7 @@ body[data-series-ui] .toggle-line {
 }
 
 body[data-series-ui] .toggle-line input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  flex: 0 0 auto;
 }
 
 body[data-series-ui] .toggle-line label {

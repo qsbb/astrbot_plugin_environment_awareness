@@ -360,6 +360,7 @@ function createConfigField(key, field, value) {
     input = document.createElement("input");
     if (field.type === "bool") {
       input.type = "checkbox";
+      input.classList.add("si-toggle");
       input.checked = Boolean(value);
     } else if (field.type === "int" || field.type === "float") {
       input.type = "number";
