@@ -171,8 +171,8 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.6.3" in metadata
-    assert 'PLUGIN_VERSION = "0.6.3"' in main
+    assert "version: 0.6.4" in metadata
+    assert 'PLUGIN_VERSION = "0.6.4"' in main
     assert schema["default_location"]["default"] == ""
     assert "page_enabled" not in schema
     assert schema["earthquake_max_distance_km"]["default"] == 1200
@@ -188,46 +188,62 @@ def test_metadata_schema_and_development_version_are_consistent():
     assert "归属不明时先询问" in schema["default_location"]["hint"]
 
 
-def test_plugin_page_is_a_kernel_webui_guidance_page():
+def test_plugin_page_has_quick_setup_and_probe_controls():
     html = (ROOT / "pages/status/index.html").read_text(encoding="utf-8")
     app = (ROOT / "pages/status/app.js").read_text(encoding="utf-8")
-
-    assert "凝心溯溪-境" in html
-    assert "核 WebUI" in html
-    assert "环境与时间" in html
-    assert "插件面板" in html
-    assert "/境天气" in html
-    assert "AstrBot 原生插件配置页" in html
+    assert 'id="default-location"' in html
+    assert 'id="probe"' in html
+    assert 'id="probe-pollen"' in html
+    assert 'id="opportunity-cache"' in html
+    assert 'id="proactive-status"' in html
+    assert 'id="use-device-location"' in html
+    assert 'id="config-form"' in html
+    assert 'id="usage-recent"' in html
+    assert 'data-tab="overview"' in html
+    assert 'data-tab="config"' in html
+    assert 'data-tab="probe"' in html
+    assert 'id="bridge-error"' in html
+    assert 'role="alert"' in html
+    assert 'aria-controls="panel-overview"' in html
+    assert 'aria-controls="panel-config"' in html
+    assert 'aria-controls="panel-probe"' in html
+    assert 'aria-labelledby="tab-overview"' in html
+    assert 'aria-labelledby="tab-config"' in html
+    assert 'aria-labelledby="tab-probe"' in html
+    assert 'aria-hidden="false"' in html
+    assert 'aria-hidden="true"' in html
     assert "AstrBot 插件管理页" in html
-    assert "data-series-ui" in html
-    # 保持核 series.ui 审计要求的资源顺序：
-    # style → series-ui.css → series-ui.js → app.js。
-    positions = [
-        html.find("style.css"),
-        html.find("series-ui.css"),
-        html.find("series-ui.js"),
-        html.find("app.js"),
-    ]
-    assert all(position >= 0 for position in positions)
-    assert positions == sorted(positions)
-    assert "style.css?v=0.6.3-1" in html
-    assert "series-ui.css?v=0.6.3-1" in html
-    assert "series-ui.js?v=0.6.3-1" in html
-    assert "app.js?v=0.6.3-1" in html
-    # 引导页不再调用桥接 API，也不会发起 status/config/probe 拉取。
-    assert "AstrBotPluginPage" not in html
-    assert "apiGet" not in html and "apiGet" not in app
-    assert "apiPost" not in html and "apiPost" not in app
-    assert "navigator.geolocation" not in html and "navigator.geolocation" not in app
+    assert "style.css?v=0.6.4" in html
+    assert "app.js?v=0.6.4" in html
+    assert "activateTab" in app
+    assert 'event.key === "ArrowLeft"' in app
+    assert 'event.key === "ArrowRight"' in app
+    assert 'event.key === "Home"' in app
+    assert 'event.key === "End"' in app
+    assert 'bridge.apiPost("setup"' in app
+    assert 'bridge.apiPost("probe"' in app
+    assert 'bridge.apiPost("config"' in app
+    assert "navigator.geolocation.getCurrentPosition" in app
+    assert "renderUsage" in app
+    assert "status.opportunity_cache" in app
+    assert "status.proactive_delivery" in app
+    assert 'panel.setAttribute("aria-hidden", String(!active))' in app
+    assert "页面通信初始化超时，请点击刷新重试" in app
+    assert "async function waitForBridgeReady" in app
+    assert "clearTimeout(timer)" in app
+    assert "initialize().catch" in app
+    assert 'setPageNotice(error?.message || "页面初始化失败"' in app
 
 
-def test_plugin_page_no_longer_owns_config_editing():
-    html = (ROOT / "pages/status/index.html").read_text(encoding="utf-8")
-    assert "config-form" not in html
-    assert "readNumericConfig" not in html
-    # 配置写入仍由插件侧共享校验路径处理，核面板不会绕过它。
-    webui = (ROOT / "series_webui.py").read_text(encoding="utf-8")
-    assert "self.plugin._save_config_payload(payload)" in webui
+def test_plugin_page_rejects_invalid_numeric_config_without_default_fallback():
+    app = (ROOT / "pages/status/app.js").read_text(encoding="utf-8")
+    assert "function readNumericConfig" in app
+    assert 'input.setAttribute("aria-invalid", "true")' in app
+    assert "需要填写" in app
+    assert "不能小于" in app
+    assert "不能大于" in app
+    assert "dataset.defaultValue" not in app
+    assert "配置读取失败" in app
 
 
 def test_page_config_schema_declares_numeric_boundaries():
@@ -279,19 +295,20 @@ def test_docs_name_official_sources_and_current_limitations():
     assert "Copyright (c) 2026 qsbb" in license_text
 
 
-def test_docs_explain_kernel_webui_migration_and_usage_privacy():
+def test_docs_explain_page_usage_privacy_and_device_location():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "核 WebUI" in readme
-    assert "实时检查" in readme
+    assert "管理页常驻可用" in readme
     assert "不记录消息内容、用户 ID、UMO 或查询地点" in readme
-    assert "单次探测间隔不少于 5 秒" in readme
+    assert "HTTPS 或 `localhost`" in readme
+    assert "配置读取失败会在页面顶部直接提示" in readme
+    assert "不会悄悄改回默认值后继续保存" in readme
     assert "页面探测不计入真实调用次数" in changelog
 
 
-def test_status_page_points_to_kernel_webui_panels():
+def test_status_page_uses_compact_action_labels():
     html = (ROOT / "pages/status/index.html").read_text(encoding="utf-8")
-    assert "核 WebUI" in html
-    assert "插件面板" in html
-    assert "使用当前位置" not in html
-    assert "保存校验" not in html
+    assert "使用当前位置" in html
+    assert "保存校验" in html
+    assert "使用当前设备位置" not in html
+    assert "保存并校验" not in html
