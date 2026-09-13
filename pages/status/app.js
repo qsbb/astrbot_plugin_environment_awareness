@@ -155,7 +155,7 @@ const consequenceNotes = {
   },
   opportunity_cache_enabled: {
     level: "warn",
-    text: "关闭后后台不再刷新关心候选；命令与 LLM 工具仍可临时查询，但不会积累候选。",
+    text: "关闭后后台不再刷新关心候选；命令与 AI 工具调用仍可临时查询，但不会积累候选。",
   },
   proactive_enabled: {
     level: "danger",
@@ -173,7 +173,7 @@ const consequenceNotes = {
 
 const sourceNames = {
   command: "手动命令",
-  llm_tool: "LLM 工具",
+  llm_tool: "AI 工具调用",
   awareness: "轻量感知",
   proactive: "主动关心",
 };
@@ -325,7 +325,8 @@ async function loadStatus() {
 
 function createConfigField(key, field, value) {
   const wrapper = document.createElement("div");
-  wrapper.className = `config-field ${field.type === "bool" ? "toggle-field" : ""}`;
+  const hasConsequence = Boolean(consequenceNotes[key]);
+  wrapper.className = `config-field ${field.type === "bool" ? "toggle-field" : ""}${hasConsequence ? " has-consequence" : ""}`;
   const inputId = `config-${key}`;
   const label = document.createElement("label");
   label.htmlFor = inputId;
@@ -599,6 +600,27 @@ elements.configForm.addEventListener("submit", async (event) => {
   }
 });
 
+function aqiLevelLabel(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  if (n <= 20) return "（优）";
+  if (n <= 40) return "（良）";
+  if (n <= 60) return "（中）";
+  if (n <= 80) return "（较差）";
+  if (n <= 100) return "（差）";
+  return "（极差）";
+}
+
+function uvLevelLabel(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  if (n < 3) return "（低）";
+  if (n < 6) return "（中）";
+  if (n < 8) return "（高）";
+  if (n < 11) return "（很高）";
+  return "（极高）";
+}
+
 function renderProbeDetails(result) {
   const host = elements.probeDetails;
   if (!host) return;
@@ -653,7 +675,7 @@ elements.probe.addEventListener("click", async () => {
     const uv = result.air_quality?.uv_index;
     elements.probeAirQuality.textContent = aqi == null && uv == null
       ? "无数据"
-      : `AQI ${aqi ?? "-"} · UV ${uv ?? "-"}`;
+      : `空气质量指数 ${aqi ?? "-"}${aqiLevelLabel(aqi)} · 紫外线指数 ${uv ?? "-"}${uvLevelLabel(uv)}`;
     elements.probePollen.textContent = result.air_quality?.pollen_available ? "可用" : "当前地区无数据";
     const calendarName = result.calendar?.holiday_name;
     elements.probeCalendar.textContent = calendarName || ({

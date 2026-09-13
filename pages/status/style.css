@@ -319,19 +319,29 @@ body[data-series-ui] .consequence-note {
   padding: 8px 11px;
   border-left: 3px solid var(--si-warning);
   border-radius: 8px;
-  color: var(--si-warning);
+  color: var(--si-ink);
   background: var(--si-warning-soft);
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1.6;
 }
 
 body[data-series-ui] .consequence-note.is-danger {
   border-left-color: var(--si-danger);
-  color: var(--si-danger);
   background: var(--si-danger-soft);
 }
 
 @media (max-width: 760px) {
   body[data-series-ui] .config-save-actions { width: 100%; }
   body[data-series-ui] .config-save-actions button { flex: 1 1 auto; }
+}
+
+/* 危险开关的后果说明独占整行，避免两列网格里相邻字段被撑出大片空白 */
+body[data-series-ui] .config-field.has-consequence { grid-column: 1 / -1; }
+
+/* 移动端 sticky 配置头压缩成一行，避免 160px 的头部吃掉五分之一视口 */
+@media (max-width: 760px) {
+  body[data-series-ui] .config-card > .section-heading { padding: 8px 0; }
+  body[data-series-ui] .config-card > .section-heading p { display: none; }
+  body[data-series-ui] .config-card > .section-heading h2 { font-size: 18px; }
+  body[data-series-ui] .config-save-actions { width: 100%; justify-content: space-between; }
 }

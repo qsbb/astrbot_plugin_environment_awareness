@@ -274,7 +274,7 @@
   "stale_cache_seconds": {
     "description": "数据源故障时可回退的旧缓存时长（秒）",
     "type": "int",
-    "hint": "回退结果始终带 stale=true，不会伪装成实时数据。设为 0 可关闭。",
+    "hint": "回退内容会在界面上标记为旧缓存，不会伪装成实时数据。设为 0 可关闭。",
     "default": 3600,
     "minimum": 0,
     "maximum": 86400
