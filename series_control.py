@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import tempfile
@@ -19,11 +20,18 @@ FIELDS = {
 }
 
 
-def _path(plugin):
-    usage_path = getattr(plugin._usage, "path", None)
+def data_dir(plugin) -> Path:
+    """插件数据目录（usage-stats.json / series-control.json 所在目录）。"""
+    usage_path = getattr(getattr(plugin, "_usage", None), "path", None)
     if usage_path is None:
-        usage_path = plugin._usage._path
-    return Path(usage_path).parent / "series-control.json"
+        usage_path = getattr(getattr(plugin, "_usage", None), "_path", None)
+    if usage_path is None:
+        usage_path = getattr(plugin, "data_dir", "")
+    return Path(usage_path).parent if usage_path else Path(".")
+
+
+def _path(plugin):
+    return data_dir(plugin) / "series-control.json"
 
 
 def _load(plugin):
@@ -41,6 +49,38 @@ def _native(plugin, field):
         if callable(getter)
         else FIELDS[field]["default"]
     )
+
+
+def _native_value(plugin, field):
+    """插件自身配置里的真值：接管覆盖不改写它。"""
+    saved = getattr(plugin, "_series_control_native_values", None)
+    if isinstance(saved, dict):
+        entry = saved.get(field)
+        if isinstance(entry, (tuple, list)) and len(entry) == 2:
+            present, value = entry
+            return value if present else FIELDS[field]["default"]
+    return _native(plugin, field)
+
+
+def _effective_value(plugin, field, overrides):
+    if (
+        field in overrides
+        and getattr(plugin, "_series_control_mode", "native") == "managed"
+    ):
+        return overrides[field]
+    return _native_value(plugin, field)
+
+
+def _value_ok(spec, value) -> bool:
+    if spec["type"] == "bool":
+        return isinstance(value, bool)
+    if spec["type"] == "int":
+        return (
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and spec["minimum"] <= value <= spec["maximum"]
+        )
+    return False
 
 
 def _remember_native(plugin, field):
@@ -80,9 +120,11 @@ def contract(plugin):
         "capabilities": [
             "read_schema",
             "read_snapshot",
+            "read_native",
             "validate_patch",
             "apply_patch",
             "reset_override",
+            "write_native",
         ],
         "read_only": False,
         "secrets_in_response": False,
@@ -115,20 +157,27 @@ def snapshot(plugin):
         if isinstance(state.get("overrides", {}), dict)
         else {}
     )
+    fields = {}
+    for name, spec in FIELDS.items():
+        item = {
+            "native_configured": name in plugin.config,
+            "managed_configured": name in overrides,
+            "effective_source": "managed"
+            if name in overrides
+            and getattr(plugin, "_series_control_mode", "native") == "managed"
+            else "plugin",
+            "effective_value": _effective_value(plugin, name, overrides),
+        }
+        # 原生值：供核「一键读取当前配置」使用（secret/write_only 不回传）
+        if spec.get("secret") or spec.get("write_only"):
+            item["secret"] = True
+        else:
+            item["native_value"] = _native_value(plugin, name)
+        fields[name] = item
     return {
         "status": "ok",
         "revision": int(state.get("revision", 0) or 0),
-        "fields": {
-            name: {
-                "native_configured": name in plugin.config,
-                "managed_configured": name in overrides,
-                "effective_source": "managed"
-                if name in overrides
-                and getattr(plugin, "_series_control_mode", "native") == "managed"
-                else "plugin",
-            }
-            for name in FIELDS
-        },
+        "fields": fields,
     }
 
 
@@ -140,16 +189,57 @@ def validate(plugin, patch, *, expected_revision):
     if not isinstance(patch, dict) or not patch or any(k not in FIELDS for k in patch):
         return {"valid": False, "reason": "PATCH_INVALID"}
     for name, value in patch.items():
-        spec = FIELDS[name]
-        if spec["type"] == "bool" and not isinstance(value, bool):
-            return {"valid": False, "reason": "PATCH_INVALID"}
-        if spec["type"] == "int" and (
-            not isinstance(value, int)
-            or isinstance(value, bool)
-            or not spec["minimum"] <= value <= spec["maximum"]
-        ):
+        if not _value_ok(FIELDS[name], value):
             return {"valid": False, "reason": "PATCH_INVALID"}
     return {"valid": True, "revision": current}
+
+
+async def native_write(plugin, patch, *, expected_revision=None):
+    """一键固化：把当前值写进插件自身配置（核掉线后仍按此运行）。
+
+    只接受 FIELDS 内的可写字段；先做白名单 + 类型校验，再交给插件层
+    备份 + 原子落盘。
+    """
+    current = int(_load(plugin).get("revision", 0) or 0)
+    if expected_revision is not None and int(expected_revision) != current:
+        return {"status": "error", "reason": "REVISION_CONFLICT", "revision": current}
+    if not isinstance(patch, dict) or not patch:
+        return {"status": "error", "reason": "PATCH_INVALID", "revision": current}
+    clean = {}
+    for name, value in patch.items():
+        spec = FIELDS.get(name)
+        if spec is None:
+            return {
+                "status": "error",
+                "reason": "UNKNOWN_FIELD",
+                "field": str(name),
+                "revision": current,
+            }
+        if not _value_ok(spec, value):
+            return {
+                "status": "error",
+                "reason": "INVALID_TYPE" if spec["type"] == "bool" else "INVALID_VALUE",
+                "field": str(name),
+                "revision": current,
+            }
+        clean[str(name)] = value
+    hook = getattr(plugin, "_apply_native_series_control_values", None)
+    if not callable(hook):
+        return {"status": "error", "reason": "UNSUPPORTED", "revision": current}
+    outcome = hook(clean)
+    if inspect.isawaitable(outcome):
+        outcome = await outcome
+    if not isinstance(outcome, dict) or outcome.get("status") != "ok":
+        reason = str((outcome or {}).get("reason") or "PERSIST_FAILED")
+        return {"status": "error", "reason": reason, "revision": current}
+    return {
+        "status": "ok",
+        "reason": "APPLIED",
+        "revision": current,
+        "written": list(outcome.get("written") or clean.keys()),
+        "skipped": list(outcome.get("skipped") or []),
+        "backup_id": str(outcome.get("backup_id") or ""),
+    }
 
 
 def _write(plugin, state):

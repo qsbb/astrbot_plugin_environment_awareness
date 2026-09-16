@@ -50,7 +50,7 @@ from .series_webui import EnvironmentWebUIAdapter
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.6.6"
+PLUGIN_VERSION = "0.6.7"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -182,6 +182,85 @@ class EnvironmentAwarenessPlugin(Star):
         from .series_control import set_mode
 
         return set_mode(self, mode)
+
+    def series_control_native_write(self, patch, *, expected_revision=None):
+        """一键固化入口（核调用）：把值写进本插件自己的原生配置。"""
+        from .series_control import native_write
+
+        return native_write(self, patch, expected_revision=expected_revision)
+
+    def _native_config_path(self) -> pathlib.Path | None:
+        """尽力定位平台托管的本插件配置文件（找不到则退化为内存快照）。"""
+        for name in ("config_path", "_config_path", "path", "file_path"):
+            value = getattr(self.config, name, None)
+            if isinstance(value, (str, pathlib.Path)) and str(value):
+                return pathlib.Path(value)
+        return None
+
+    def _backup_native_config(self) -> str:
+        """固化前先备份原生配置，返回 backup_id；失败返回空串并告警。"""
+        from .series_control import data_dir
+
+        try:
+            stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+            target = data_dir(self) / f"native-backup-{stamp}.json"
+            source = self._native_config_path()
+            if source is not None and source.is_file():
+                payload = source.read_text(encoding="utf-8")
+            else:
+                # 拿不到平台配置文件时，至少把当前内存配置整份落盘，保证可回滚。
+                payload = json.dumps(
+                    dict(self.config), ensure_ascii=False, indent=2, default=str
+                )
+            tmp_path = target.with_name(f".{target.name}.tmp")
+            tmp_path.write_text(payload, encoding="utf-8")
+            tmp_path.replace(target)
+            return stamp
+        except Exception as exc:
+            logger.warning("境 原生配置备份失败: %s", exc)
+            return ""
+
+    async def _apply_native_series_control_values(self, values: Any) -> dict[str, Any]:
+        """把给定字段写进原生配置并落盘（固化用；失败回滚内存）。"""
+        if not isinstance(values, dict) or not values:
+            return {"status": "error", "reason": "INVALID_PATCH"}
+        save = getattr(self.config, "save_config", None)
+        if not callable(save):
+            return {"status": "error", "reason": "NATIVE_CONFIG_UNAVAILABLE"}
+        previous = {key: (key in self.config, self.config.get(key)) for key in values}
+        backup_id = self._backup_native_config()
+        try:
+            self.config.update(values)
+            save()
+        except Exception as exc:
+            for key, (existed, value) in previous.items():
+                if existed:
+                    self.config[key] = value
+                else:
+                    self.config.pop(key, None)
+            return {
+                "status": "error",
+                "reason": f"PERSIST_FAILED:{type(exc).__name__}",
+            }
+        # 固化后插件自身配置即为真值：同步"接管前旧值"记忆，避免回退时倒回旧值。
+        remembered = getattr(self, "_series_control_native_values", None)
+        if not isinstance(remembered, dict):
+            remembered = {}
+            self._series_control_native_values = remembered
+        for key, value in values.items():
+            remembered[key] = (True, value)
+        restart = getattr(self, "_restart_background_task", None)
+        if callable(restart):
+            try:
+                await restart(clear_candidate=False)
+            except Exception as exc:
+                logger.warning("境 固化后刷新运行时失败: %s", exc)
+        return {
+            "status": "ok",
+            "written": sorted(values.keys()),
+            "skipped": [],
+            "backup_id": backup_id,
+        }
 
     def record_invocation(
         self,
