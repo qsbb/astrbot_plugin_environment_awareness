@@ -2,7 +2,7 @@ name: astrbot_plugin_environment_awareness
 display_name: 凝心溯溪-境
 short_desc: 凝心溯溪系列环境模块：天气、日历、空气质量与官方预警
 desc: 凝心溯溪系列环境模块：按需获取日历、天气、空气质量、官方预警与自然事件
-version: 0.6.7
+version: 0.6.8
 author: 凌溪
 repo: https://github.com/qsbb/astrbot_plugin_environment_awareness
 astrbot_version: ">=4.16,<5"

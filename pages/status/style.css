@@ -42,8 +42,9 @@ body[data-series-ui] .section-heading p {
 
 body[data-series-ui] .tabs {
   margin: 24px 0 16px;
-  overflow-x: auto;
 }
+
+body[data-series-ui] .tabs button { flex: 0 0 auto; }
 
 body[data-series-ui] .panel {
   display: none;
@@ -92,7 +93,7 @@ body[data-series-ui] .probe-grid strong {
   margin-top: 6px;
   color: var(--si-ink);
   font-size: 19px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 body[data-series-ui] .status-cards .metric:nth-child(2) strong,
@@ -270,8 +271,8 @@ body[data-series-ui] .filter-list dd {
 }
 
 /* 操作按钮不拆字，保证短文案保持单行。 */
-body[data-series-ui] #use-device-location,
-body[data-series-ui] #save {
+body[data-series-ui] .section-heading > button,
+body[data-series-ui] .toolbar > button {
   flex: 0 0 auto;
   white-space: nowrap;
   word-break: keep-all;

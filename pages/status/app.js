@@ -198,6 +198,7 @@ const statusNames = {
   suppressed: "未发送",
 };
 
+// 选项文案存在双来源：此处与 .astrbot-plugin/i18n 的 config labels；已知差异，页面以 optionLabels 为准。
 const optionLabels = {
   low: "低",
   medium: "中",
@@ -659,13 +660,7 @@ function renderProbeDetails(result) {
   } else if (officialStatus === "unsupported_region") {
     items.push({ title: "官方气象预警", body: "当前地区不支持官方预警接口。" });
   }
-  if (!items.length) {
-    const ok = document.createElement("p");
-    ok.className = "field-hint";
-    ok.textContent = "数据源与相关性过滤正常。";
-    host.appendChild(ok);
-    return;
-  }
+  if (!items.length) return;
   items.forEach((item) => {
     const row = document.createElement("div");
     const title = document.createElement("strong");
@@ -675,10 +670,6 @@ function renderProbeDetails(result) {
     row.append(title, body);
     host.appendChild(row);
   });
-  const retry = document.createElement("p");
-  retry.className = "field-hint";
-  retry.textContent = "点击“测试数据源”可重试失败的数据源。";
-  host.appendChild(retry);
 }
 
 elements.probe.addEventListener("click", async () => {

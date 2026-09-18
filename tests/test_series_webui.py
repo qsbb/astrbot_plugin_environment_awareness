@@ -106,7 +106,7 @@ def test_status_panel_reports_runtime_filters_and_usage_summary():
     ):
         assert label in rows
     assert rows["运行状态"] == "正常"
-    assert rows["版本"] == "0.6.7"
+    assert rows["版本"] == "0.6.8"
     assert str(rows["数据源"]).startswith("Open-Meteo")
     assert all(
         isinstance(value, (str, int, float, bool)) for value in rows.values()
