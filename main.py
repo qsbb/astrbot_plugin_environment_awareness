@@ -50,7 +50,7 @@ from .series_webui import EnvironmentWebUIAdapter
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.6.8"
+PLUGIN_VERSION = "0.6.9"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -432,14 +432,39 @@ class EnvironmentAwarenessPlugin(Star):
         return copy.deepcopy(candidate) if candidate else None
 
     def _get_plugin_instance(self, plugin_name: str) -> Any | None:
+        """解析协同插件实例：先试集成层快捷入口，再走 AstrBot 官方注册表。"""
         getter = getattr(self.context, "get_star_instance", None)
-        if not callable(getter):
-            return None
-        try:
-            return getter(plugin_name)
-        except Exception as exc:
-            logger.debug("境查询协同插件 %s 失败: %s", plugin_name, exc)
-            return None
+        if callable(getter):
+            try:
+                instance = getter(plugin_name)
+            except Exception as exc:
+                logger.debug("境查询协同插件 %s 失败: %s", plugin_name, exc)
+                instance = None
+            if instance is not None and not isinstance(instance, type):
+                return instance
+        # AstrBot 4.x 官方接口：get_registered_star 返回 StarMetadata，
+        # 运行实例挂在 star_cls 上（class 值要跳过）。
+        registry = getattr(self.context, "get_registered_star", None)
+        if callable(registry):
+            try:
+                meta = registry(plugin_name)
+            except Exception:
+                meta = None
+            if meta is not None:
+                for attr in (
+                    "star_cls",
+                    "star",
+                    "instance",
+                    "star_instance",
+                    "plugin",
+                ):
+                    try:
+                        candidate = getattr(meta, attr, None)
+                    except Exception:
+                        continue
+                    if candidate is not None and not isinstance(candidate, type):
+                        return candidate
+        return None
 
     @staticmethod
     def _compatible_contract(

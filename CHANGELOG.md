@@ -1,4 +1,10 @@
 ## [Unreleased]
+## 0.6.9 - 2026-09-21
+
+### 修复
+
+- 协同插件实例解析补上 AstrBot 官方接口回退（``get_registered_star`` → ``StarMetadata.star_cls``）。此前官方 AstrBot 下找不到「言」，环境信息递送一直静默失效。
+
 ## 0.6.8 - 2026-09-19
 
 ### 变更
