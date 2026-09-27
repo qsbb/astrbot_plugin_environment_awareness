@@ -116,7 +116,7 @@ def contract(plugin):
         "version": "1.0",
         "series_id": "ningxin_suxi",
         "plugin_id": "astrbot_plugin_environment_awareness",
-        "plugin_name": "凝心溯溪-境",
+        "plugin_name": "境",
         "capabilities": [
             "read_schema",
             "read_snapshot",

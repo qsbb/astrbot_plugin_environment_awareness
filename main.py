@@ -50,7 +50,7 @@ from .series_webui import EnvironmentWebUIAdapter
 from .tools import create_tools
 
 PLUGIN_NAME = "astrbot_plugin_environment_awareness"
-PLUGIN_VERSION = "0.6.9"
+PLUGIN_VERSION = "0.7.0"
 _TOOL_NAMES = {
     "get_local_datetime",
     "get_local_calendar",
@@ -79,7 +79,7 @@ _AIR_OPPORTUNITY_KINDS = frozenset({"high_air_quality_index", "high_uv_index"})
 @register(
     PLUGIN_NAME,
     "凌溪",
-    "凝心溯溪-境：按需感知本地时间、天气和与设定地点相关的自然事件",
+    "境：按需感知本地时间、天气和与设定地点相关的自然事件",
     PLUGIN_VERSION,
     "https://github.com/qsbb/astrbot_plugin_environment_awareness",
 )
@@ -131,7 +131,7 @@ class EnvironmentAwarenessPlugin(Star):
 
         self._ensure_background_task()
         logger.info(
-            "凝心溯溪-境 %s 已加载 | default_location=%s | "
+            "境 %s 已加载 | default_location=%s | "
             "opportunity_cache=%s | active_push=%s",
             PLUGIN_VERSION,
             settings.default_location or "未设置",
@@ -627,7 +627,7 @@ class EnvironmentAwarenessPlugin(Star):
             else "暂无"
         )
         result = event.plain_result(
-            "凝心溯溪-境\n"
+            "境\n"
             f"常驻地点：{location}\n"
             "数据源：Open-Meteo / 中央气象台 / USGS（无需 API Key）\n"
             f"环境关心候选：{candidate_text}\n"
@@ -826,7 +826,7 @@ class EnvironmentAwarenessPlugin(Star):
             {
                 "plugin": {
                     "name": PLUGIN_NAME,
-                    "display_name": "凝心溯溪-境",
+                    "display_name": "境",
                     "version": PLUGIN_VERSION,
                 },
                 **self._runtime_diagnostics(),
@@ -1256,4 +1256,4 @@ class EnvironmentAwarenessPlugin(Star):
         await self._cache.clear()
         await self._http_client.aclose()
         diagnostic_event("plugin.terminated", "环境感知插件已卸载")
-        logger.info("凝心溯溪-境已卸载，缓存、工具和 HTTP 会话已回收")
+        logger.info("「境」已卸载，缓存、工具和 HTTP 会话已回收")
