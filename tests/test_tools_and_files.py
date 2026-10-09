@@ -171,8 +171,8 @@ def test_metadata_schema_and_development_version_are_consistent():
     metadata = (ROOT / "metadata.yaml").read_text(encoding="utf-8")
     main = (ROOT / "main.py").read_text(encoding="utf-8")
     schema = json.loads((ROOT / "_conf_schema.json").read_text(encoding="utf-8"))
-    assert "version: 0.7.1" in metadata
-    assert 'PLUGIN_VERSION = "0.7.1"' in main
+    assert "version: 0.7.2" in metadata
+    assert 'PLUGIN_VERSION = "0.7.2"' in main
     assert schema["default_location"]["default"] == ""
     assert "page_enabled" not in schema
     assert schema["earthquake_max_distance_km"]["default"] == 1200
@@ -212,8 +212,8 @@ def test_plugin_page_has_quick_setup_and_probe_controls():
     assert 'aria-labelledby="tab-probe"' in html
     assert 'aria-hidden="false"' in html
     assert 'aria-hidden="true"' in html
-    assert "style.css?v=0.7.1" in html
-    assert "app.js?v=0.7.1" in html
+    assert "style.css?v=0.7.2" in html
+    assert "app.js?v=0.7.2" in html
     assert "activateTab" in app
     assert 'event.key === "ArrowLeft"' in app
     assert 'event.key === "ArrowRight"' in app

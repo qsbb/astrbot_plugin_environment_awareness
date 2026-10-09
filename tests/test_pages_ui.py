@@ -60,3 +60,20 @@ def test_environment_config_groups_cover_sources_and_cache() -> None:
         "stale_cache_seconds",
     ):
         assert f'"{key}"' in js
+
+
+def test_config_conditional_visibility_for_dependent_fields():
+    """依赖字段按运行时总开关显隐，候选刷新接受缓存或主动发送两条路径。"""
+    js = (PAGE_DIR / "app.js").read_text(encoding="utf-8")
+    css = (PAGE_DIR / "style.css").read_text(encoding="utf-8")
+    assert "const configDependencies" in js
+    assert "function applyConfigVisibility(" in js
+    assert "function configConditionMatches(" in js
+    assert 'official_warning_max_age_hours: { key: "official_weather_warnings_enabled", on: true }' in js
+    assert 'proactive_min_severity: { key: "proactive_enabled", on: true }' in js
+    assert 'opportunity_refresh_seconds: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] }' in js
+    assert 'opportunity_european_aqi_threshold: { any:' in js
+    assert 'heavy_rain_mm: { key: "weather_risk_enabled", on: true }' in js
+    assert "applyConfigVisibility();\n  updateConfigDirty();" in js
+    assert "applyConfigVisibility();\n});" in js
+    assert "config-field[hidden]" in css

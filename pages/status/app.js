@@ -338,10 +338,59 @@ async function loadStatus() {
   }
 }
 
+// 只收起运行时确实依赖关闭/模式开关的字段；配置值仍保留并正常保存。
+const configDependencies = {
+  calendar_country_code: { key: "calendar_awareness_enabled", on: true },
+  holiday_subdivision: { key: "calendar_awareness_enabled", on: true },
+  official_warning_max_age_hours: { key: "official_weather_warnings_enabled", on: true },
+  official_warning_province: { key: "official_weather_warnings_enabled", on: true },
+  opportunity_refresh_seconds: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] },
+  opportunity_min_severity: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] },
+  opportunity_european_aqi_threshold: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] },
+  opportunity_us_aqi_threshold: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] },
+  opportunity_uv_threshold: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] },
+  opportunity_temperature_drop_c: { any: [{ key: "opportunity_cache_enabled", on: true }, { key: "proactive_enabled", on: true }] },
+  proactive_min_severity: { key: "proactive_enabled", on: true },
+  proactive_quiet_start: { key: "proactive_enabled", on: true },
+  proactive_quiet_end: { key: "proactive_enabled", on: true },
+  proactive_daily_limit: { key: "proactive_enabled", on: true },
+  heavy_rain_mm: { key: "weather_risk_enabled", on: true },
+  strong_wind_kmh: { key: "weather_risk_enabled", on: true },
+  extreme_heat_c: { key: "weather_risk_enabled", on: true },
+  extreme_cold_c: { key: "weather_risk_enabled", on: true },
+};
+
+function configToggleOn(value) {
+  return value === true || value === "true" || value === "on" || value === 1 || value === "1";
+}
+
+function configConditionMatches(dep, values) {
+  if (!dep) return true;
+  if (Array.isArray(dep.all) && !dep.all.every((item) => configConditionMatches(item, values))) return false;
+  if (Array.isArray(dep.any) && !dep.any.some((item) => configConditionMatches(item, values))) return false;
+  if (!dep.key) return true;
+  const current = values[dep.key];
+  if (Object.prototype.hasOwnProperty.call(dep, "on")) return configToggleOn(current) === dep.on;
+  if (Array.isArray(dep.values)) return dep.values.some((value) => String(current ?? "") === String(value));
+  return true;
+}
+
+function applyConfigVisibility() {
+  if (!elements.configForm) return;
+  const values = {};
+  for (const input of elements.configForm.querySelectorAll(".config-input")) {
+    values[input.name] = input.dataset.kind === "bool" ? input.checked : input.value;
+  }
+  elements.configForm.querySelectorAll("[data-config-key]").forEach((wrapper) => {
+    wrapper.hidden = !configConditionMatches(configDependencies[wrapper.dataset.configKey], values);
+  });
+}
+
 function createConfigField(key, field, value) {
   const wrapper = document.createElement("div");
   const hasConsequence = Boolean(consequenceNotes[key]);
   wrapper.className = `config-field ${field.type === "bool" ? "toggle-field" : ""}${hasConsequence ? " has-consequence" : ""}`;
+  wrapper.dataset.configKey = key;
   const inputId = `config-${key}`;
   const label = document.createElement("label");
   label.htmlFor = inputId;
@@ -477,6 +526,7 @@ function renderConfig(schema, config) {
   for (const input of elements.configForm.querySelectorAll(".config-input")) {
     configSnapshot[input.name] = configFieldValue(input);
   }
+  applyConfigVisibility();
   updateConfigDirty();
 }
 
@@ -599,7 +649,10 @@ elements.locate.addEventListener("click", async () => {
 });
 
 elements.configForm.addEventListener("input", updateConfigDirty);
-elements.configForm.addEventListener("change", updateConfigDirty);
+elements.configForm.addEventListener("change", () => {
+  updateConfigDirty();
+  applyConfigVisibility();
+});
 
 elements.configForm.addEventListener("submit", async (event) => {
   event.preventDefault();
